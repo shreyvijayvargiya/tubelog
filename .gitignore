@@ -1,0 +1,10 @@
+node_modules/
+dashboard/node_modules/
+dashboard/dist/
+.env
+.env.*
+!.env.example
+*.log
+.DS_Store
+videos/**
+!videos/.gitkeep

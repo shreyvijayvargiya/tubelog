@@ -1,0 +1,186 @@
+import { useEffect, useState } from "react";
+import { NavLink, Outlet, useNavigate } from "react-router-dom";
+import { BookOpen, Github, LayoutDashboard, Library, Menu, Monitor, Moon, Settings, Star, Sun, Tv, Youtube } from "lucide-react";
+import { api, onLibraryChange } from "../../lib/api.js";
+import { useConfig } from "../../lib/useConfig.js";
+import { cn } from "../../lib/utils.js";
+import { useTheme } from "../../lib/theme.jsx";
+import { Button, Separator } from "../ui/button.jsx";
+import { DialogTitle, Sheet, SheetContent } from "../ui/dialog.jsx";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../ui/menu.jsx";
+
+const NAV = [
+  { to: "/", label: "Dashboard", icon: LayoutDashboard, end: true },
+  { to: "/channels", label: "Channels", icon: Tv },
+  { to: "/videos", label: "Videos", icon: Youtube },
+  { to: "/blogs", label: "Blogs", icon: BookOpen },
+  { to: "/settings", label: "Settings", icon: Settings },
+];
+
+export function AppShell() {
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [channels, setChannels] = useState([]);
+  const { config } = useConfig();
+  const github = config?.github || "https://github.com/yourname/tubelog";
+
+  useEffect(() => {
+    let active = true;
+    const load = () => {
+      api("/api/channels")
+        .then((data) => {
+          if (active) setChannels(data.channels || []);
+        })
+        .catch(() => {
+          if (active) setChannels([]);
+        });
+    };
+    load();
+    const unsubscribe = onLibraryChange(load);
+    return () => {
+      active = false;
+      unsubscribe();
+    };
+  }, []);
+
+  return (
+    <div className="flex h-screen overflow-hidden bg-background text-foreground">
+      <aside className="hidden w-60 shrink-0 border-r border-border md:flex md:flex-col">
+        <Sidebar channels={channels} />
+      </aside>
+      <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
+        <SheetContent side="left" className="w-72 p-0">
+          <DialogTitle className="sr-only">Navigation</DialogTitle>
+          <Sidebar channels={channels} onNavigate={() => setMobileOpen(false)} />
+        </SheetContent>
+      </Sheet>
+      <div className="flex min-w-0 flex-1 flex-col">
+        <header className="border-b border-border">
+          <div className="flex items-center gap-2 px-3 py-2 sm:px-4">
+            <Button variant="ghost" size="icon" className="md:hidden" aria-label="Open menu" onClick={() => setMobileOpen(true)}>
+              <Menu className="h-4 w-4" />
+            </Button>
+            <span className="font-semibold tracking-tight md:hidden">TubeLog</span>
+            <SearchBox />
+            <div className="ml-auto flex items-center gap-1 sm:gap-2">
+              <ThemeMenu />
+              <Button variant="ghost" size="icon" asChild>
+                <a href={github} target="_blank" rel="noreferrer" aria-label="GitHub">
+                  <Github className="h-4 w-4" />
+                </a>
+              </Button>
+              <Button variant="outline" size="sm" asChild>
+                <a href={github} target="_blank" rel="noreferrer">
+                  <Star className="h-4 w-4" />
+                  <span className="hidden lg:inline">Star on GitHub</span>
+                </a>
+              </Button>
+            </div>
+          </div>
+        </header>
+        <main className="min-h-0 flex-1 overflow-y-auto">
+          <div className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6">
+            <Outlet />
+          </div>
+        </main>
+      </div>
+    </div>
+  );
+}
+
+function SearchBox() {
+  const navigate = useNavigate();
+  return (
+    <form
+      className="min-w-0 flex-1"
+      onSubmit={(event) => {
+        event.preventDefault();
+        const value = new FormData(event.currentTarget).get("q");
+        navigate(`/videos?q=${encodeURIComponent(String(value || "").trim())}`);
+      }}
+    >
+      <input
+        name="q"
+        placeholder="Search your library"
+        className="h-9 w-full max-w-md rounded-md border border-input bg-background px-3 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      />
+    </form>
+  );
+}
+
+function ThemeMenu() {
+  const { theme, setTheme } = useTheme();
+  const Icon = theme === "light" ? Sun : theme === "dark" ? Moon : Monitor;
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" size="icon" aria-label="Theme">
+          <Icon className="h-4 w-4" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuItem onSelect={() => setTheme("light")}>
+          <Sun className="h-4 w-4" /> Light
+        </DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => setTheme("dark")}>
+          <Moon className="h-4 w-4" /> Dark
+        </DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => setTheme("system")}>
+          <Monitor className="h-4 w-4" /> System
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+function Sidebar({ channels, onNavigate }) {
+  return (
+    <div className="flex h-full flex-col">
+      <div className="flex items-center gap-2 px-4 py-4">
+        <Library className="h-4 w-4" />
+        <div>
+          <p className="text-sm font-semibold tracking-tight">TubeLog</p>
+          <p className="text-xs text-muted-foreground">Local library</p>
+        </div>
+      </div>
+      <nav className="space-y-1 px-2">
+        {NAV.map((item) => (
+          <NavLink
+            key={item.to}
+            to={item.to}
+            end={item.end}
+            onClick={onNavigate}
+            className={({ isActive }) =>
+              cn(
+                "flex items-center gap-2 rounded-md px-3 py-2 text-sm",
+                isActive ? "bg-accent font-medium text-foreground" : "text-muted-foreground hover:bg-accent hover:text-foreground",
+              )
+            }
+          >
+            <item.icon className="h-4 w-4" />
+            {item.label}
+          </NavLink>
+        ))}
+      </nav>
+      <Separator className="my-3" />
+      <div className="px-4 pb-2 text-xs font-medium tracking-wide text-muted-foreground">LIBRARY</div>
+      <div className="min-h-0 flex-1 space-y-1 overflow-y-auto px-2 pb-4">
+        {channels.length === 0 ? <p className="px-3 py-2 text-sm text-muted-foreground">No channels yet</p> : null}
+        {channels.map((channel) => (
+          <NavLink
+            key={channel.slug}
+            to={`/channels/${channel.slug}`}
+            onClick={onNavigate}
+            className={({ isActive }) =>
+              cn(
+                "block truncate rounded-md px-3 py-2 text-sm",
+                isActive ? "bg-accent font-medium text-foreground" : "text-muted-foreground hover:bg-accent hover:text-foreground",
+              )
+            }
+          >
+            {channel.name}
+          </NavLink>
+        ))}
+      </div>
+    </div>
+  );
+}
