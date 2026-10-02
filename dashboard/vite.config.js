@@ -23,7 +23,7 @@ export default defineConfig({
     },
   },
   build: {
-    outDir: path.join(dashboardRoot, "dist"),
+    outDir: path.join(dashboardRoot, "..", "dist"),
     emptyOutDir: true,
   },
 });

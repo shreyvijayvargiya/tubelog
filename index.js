@@ -20,7 +20,7 @@ const TYPES = {
   ".map": "application/json",
 };
 
-const distDir = path.join(rootDir, "dashboard", "dist");
+const distDir = path.join(rootDir, "dist");
 
 function insideDist(file) {
   const root = path.resolve(distDir);

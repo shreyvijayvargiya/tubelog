@@ -163,6 +163,29 @@ Errors return JSON:
 { "error": "What went wrong" }
 ```
 
+Each route also has an npm script. These call the API in-process, so the dev server does not need to be running. Pass arguments after `--`.
+
+| Script | Route |
+| --- | --- |
+| `npm run api:health` | `GET /api/health` |
+| `npm run api:config` | `GET /api/config` |
+| `npm run api:channels` | `GET /api/channels` |
+| `npm run api:channel -- fireship` | `GET /api/channels/:channel` |
+| `npm run api:videos -- fireship --blog` | `GET /api/videos` |
+| `npm run api:video -- No-JPdFvYWU` | `GET /api/videos/:id` |
+| `npm run api:transcript -- No-JPdFvYWU` | `GET /api/videos/:id/transcript` |
+| `npm run api:blog -- No-JPdFvYWU` | `GET /api/videos/:id/blog` |
+| `npm run api:markdown -- No-JPdFvYWU` | `GET /api/videos/:id/markdown` |
+| `npm run api:search -- agents --channel fireship` | `GET /api/search` |
+| `npm run api:youtube:channel -- https://youtube.com/@fireship` | `POST /api/youtube/channel` |
+| `npm run api:youtube:transcript -- No-JPdFvYWU` | `POST /api/youtube/transcript` |
+| `npm run api:sync -- https://youtube.com/@fireship --ai` | `POST /api/youtube/sync` |
+| `npm run api:ai:blog -- No-JPdFvYWU --style tutorial` | `POST /api/ai/blog` |
+| `npm run api:regenerate -- No-JPdFvYWU` | `POST /api/videos/:id/regenerate` |
+| `npm run api:delete -- No-JPdFvYWU` | `DELETE /api/videos/:id` |
+
+`npm run api -- help` prints the same list. `api:sync` and `api:youtube:transcript` accept `--ai`. `api:sync` also accepts `--force` and `--limit N`.
+
 ### `GET /api/health`
 
 Response:

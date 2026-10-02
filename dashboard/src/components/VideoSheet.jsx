@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Copy, ExternalLink, FileText, RefreshCw, Sparkles, X } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "../lib/api.js";
-import { copyText, formatDuration, formatPublished, readableTranscript } from "../lib/utils.js";
+import { copyText, formatDuration, formatPublished, proseToMarkdown, transcriptToMarkdown } from "../lib/utils.js";
 import { MarkdownView } from "./MarkdownView.jsx";
 import { Badge, Button, Separator, Skeleton } from "./ui/button.jsx";
 import { DialogTitle, Sheet, SheetContent } from "./ui/dialog.jsx";
@@ -91,17 +91,17 @@ export function VideoSheet({ videoId, open, onOpenChange, tab = "overview", onTa
                 {video.thumbnail ? (
                   <img src={video.thumbnail} alt="" className="aspect-video w-full rounded-md border border-border object-cover" />
                 ) : null}
-                <p className="text-sm leading-6 text-muted-foreground">{video.description || "No description saved."}</p>
+                {video.description ? (
+                  <MarkdownView>{proseToMarkdown(video.description)}</MarkdownView>
+                ) : (
+                  <p className="text-sm text-muted-foreground">No description saved.</p>
+                )}
                 <Separator />
                 <p className="break-all text-xs text-muted-foreground">{video.markdownPath}</p>
               </TabsContent>
               <TabsContent value="transcript">
                 {video.transcriptAvailable && video.transcript ? (
-                  <div className="space-y-4 text-[15px] leading-7">
-                    {readableTranscript(video.transcript).map((paragraph, index) => (
-                      <p key={index}>{paragraph}</p>
-                    ))}
-                  </div>
+                  <MarkdownView>{transcriptToMarkdown(video.transcript)}</MarkdownView>
                 ) : (
                   <p className="text-sm text-muted-foreground">Transcript unavailable.</p>
                 )}

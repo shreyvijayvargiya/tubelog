@@ -86,7 +86,7 @@ export function toMarkdown(video) {
     `thumbnail: ${yamlValue(video.thumbnail || "")}`,
     `published_at: ${yamlValue(video.publishedAt || "")}`,
     `duration: ${Number(video.duration) || 0}`,
-    `description: ${yamlValue(String(video.description || "").slice(0, 1500))}`,
+    `description: ${yamlValue(String(video.description || "").slice(0, 5000))}`,
     `transcript_available: ${video.transcriptAvailable ? "true" : "false"}`,
     `transcript_language: ${yamlValue(video.transcriptLanguage || "")}`,
     `transcript_error: ${yamlValue(video.transcriptError || "")}`,
