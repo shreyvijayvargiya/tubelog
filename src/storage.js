@@ -25,7 +25,13 @@ async function ensureDir(dir) {
 }
 
 export async function libraryRoot() {
-  return ensureDir(videosDirectory());
+  const dir = videosDirectory();
+  try {
+    return await ensureDir(dir);
+  } catch (error) {
+    if (error?.code === "EROFS" || error?.code === "EPERM" || error?.code === "ENOENT") return dir;
+    throw error;
+  }
 }
 
 function yamlValue(value) {
@@ -153,7 +159,12 @@ export function fromMarkdown(text, filePath = "") {
 
 async function channelDirs() {
   const root = await libraryRoot();
-  const entries = await readdir(root, { withFileTypes: true });
+  let entries = [];
+  try {
+    entries = await readdir(root, { withFileTypes: true });
+  } catch {
+    return [];
+  }
   return entries.filter((entry) => entry.isDirectory() && SLUG.test(entry.name)).map((entry) => entry.name);
 }
 

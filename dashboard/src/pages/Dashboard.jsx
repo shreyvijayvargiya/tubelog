@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ArrowRight, Library, Plus } from "lucide-react";
+import { ArrowRight, BookOpen, Library, Plus, Tv } from "lucide-react";
 import { toast } from "sonner";
 import { AddContentDialog } from "../components/AddContentDialog.jsx";
 import { VideoTable } from "../components/VideoTable.jsx";
@@ -21,11 +21,14 @@ export function DashboardPage() {
       try {
         const [videoData, channelData] = await Promise.all([api("/api/videos"), api("/api/channels")]);
         if (!active) return;
-        setVideos(videoData.videos);
-        setChannels(channelData.channels);
+        setVideos(Array.isArray(videoData.videos) ? videoData.videos : []);
+        setChannels(Array.isArray(channelData.channels) ? channelData.channels : []);
         setError("");
       } catch (err) {
-        if (active) setError(err.message);
+        if (!active) return;
+        setVideos([]);
+        setChannels([]);
+        setError(err.message);
       }
     };
     load();
@@ -37,12 +40,14 @@ export function DashboardPage() {
   }, []);
 
   const loading = videos === null || channels === null;
-  const empty = !loading && videos.length === 0 && channels.length === 0;
+  const empty = !loading && !error && videos.length === 0 && channels.length === 0;
   const transcripts = (videos || []).filter((video) => video.transcriptAvailable).length;
   const blogs = (videos || []).filter((video) => video.blogGenerated).length;
 
   return (
     <div className="space-y-6">
+      <Onboarding />
+      {error ? <p className="text-sm text-destructive">{error}</p> : null}
       {empty ? (
         <EmptyLibrary defaultAi={Boolean(config?.ai?.enabled)} />
       ) : (
@@ -63,11 +68,50 @@ export function DashboardPage() {
               Add Content
             </Button>
           </div>
-          {error ? <p className="text-sm text-destructive">{error}</p> : null}
           <VideoTable videos={videos || []} loading={loading} limit={8} hideFilters onReload={() => emitLibraryChange()} />
         </>
       )}
       <AddContentDialog open={addOpen} onOpenChange={setAddOpen} />
+    </div>
+  );
+}
+
+const STEPS = [
+  {
+    icon: Library,
+    title: "How to use",
+    body: "TubeLog keeps a private library on this machine. A video becomes one Markdown file with its transcript. Open a row to read it.",
+  },
+  {
+    icon: Tv,
+    title: "Add a channel",
+    body: "Choose Add Content and paste a channel URL, @handle, or a single video link. Sync saves new videos and skips ones you already archived.",
+  },
+  {
+    icon: BookOpen,
+    title: "Create an AI blog",
+    body: "Check Generate AI blogs while adding content, or open a saved video and choose Generate Blog. The lesson is written from that transcript.",
+  },
+];
+
+function Onboarding() {
+  return (
+    <div className="grid gap-3 md:grid-cols-3">
+      {STEPS.map((step, index) => {
+        const Icon = step.icon;
+        return (
+          <Card key={step.title} className="p-4">
+            <div className="mb-3 flex items-center gap-2">
+              <span className="flex h-7 w-7 items-center justify-center rounded-md border border-border text-xs font-medium">
+                {index + 1}
+              </span>
+              <Icon className="h-4 w-4 text-muted-foreground" />
+            </div>
+            <h2 className="text-sm font-medium">{step.title}</h2>
+            <p className="mt-1 text-sm leading-6 text-muted-foreground">{step.body}</p>
+          </Card>
+        );
+      })}
     </div>
   );
 }
