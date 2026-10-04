@@ -585,7 +585,7 @@ If the file has a transcript and no blog, `sync --ai` writes the blog into that 
 ```js
 export default {
   videosDir: "./videos",
-  github: "https://github.com/yourname/tubelog",
+  github: "https://github.com/shreyvijayvargiya/tubelog",
   ai: {
     enabled: false,
     model: "google/gemini-2.5-flash",

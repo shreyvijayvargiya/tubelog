@@ -1,7 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Copy, ExternalLink, FileText, RefreshCw, Sparkles, X } from "lucide-react";
 import { toast } from "sonner";
-import { api } from "../lib/api.js";
+import { api, onLibraryChange } from "../lib/api.js";
 import { copyText, formatDuration, formatPublished, proseToMarkdown, transcriptToMarkdown } from "../lib/utils.js";
 import { MarkdownView } from "./MarkdownView.jsx";
 import { Badge, Button, Separator, Skeleton } from "./ui/button.jsx";
@@ -12,24 +12,41 @@ export function VideoSheet({ videoId, open, onOpenChange, tab = "overview", onTa
   const [video, setVideo] = useState(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const blogRef = useRef("");
+  const onTabChangeRef = useRef(onTabChange);
+  onTabChangeRef.current = onTabChange;
 
   useEffect(() => {
     if (!open || !videoId) return undefined;
     let active = true;
+    blogRef.current = "";
+    setVideo(null);
     setLoading(true);
     setError("");
-    api(`/api/videos/${videoId}`)
-      .then((data) => {
-        if (active) setVideo(data.video);
-      })
-      .catch((err) => {
-        if (active) setError(err.message);
-      })
-      .finally(() => {
-        if (active) setLoading(false);
-      });
+
+    const load = (quiet) => {
+      api(`/api/videos/${videoId}`)
+        .then((data) => {
+          if (!active) return;
+          const nextBlog = data.video?.blog || "";
+          if (quiet && nextBlog && nextBlog !== blogRef.current) onTabChangeRef.current?.("blog");
+          blogRef.current = nextBlog;
+          setVideo(data.video);
+          setError("");
+        })
+        .catch((err) => {
+          if (active && !quiet) setError(err.message);
+        })
+        .finally(() => {
+          if (active) setLoading(false);
+        });
+    };
+
+    load(false);
+    const unsubscribe = onLibraryChange(() => load(true));
     return () => {
       active = false;
+      unsubscribe();
     };
   }, [open, videoId]);
 
@@ -72,6 +89,17 @@ export function VideoSheet({ videoId, open, onOpenChange, tab = "overview", onTa
           </Button>
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
+          {video?.id ? (
+            <div className="mb-4 overflow-hidden rounded-xl border border-border bg-black">
+              <iframe
+                className="aspect-video w-full"
+                src={`https://www.youtube.com/embed/${video.id}`}
+                title={video.title || "YouTube video"}
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                allowFullScreen
+              />
+            </div>
+          ) : null}
           {loading ? (
             <div className="space-y-3">
               <Skeleton className="h-36 w-full" />
@@ -88,9 +116,6 @@ export function VideoSheet({ videoId, open, onOpenChange, tab = "overview", onTa
                 <TabsTrigger value="blog">AI Blog</TabsTrigger>
               </TabsList>
               <TabsContent value="overview" className="space-y-4">
-                {video.thumbnail ? (
-                  <img src={video.thumbnail} alt="" className="aspect-video w-full rounded-md border border-border object-cover" />
-                ) : null}
                 {video.description ? (
                   <MarkdownView>{proseToMarkdown(video.description)}</MarkdownView>
                 ) : (

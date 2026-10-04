@@ -42,12 +42,15 @@ export function DialogDescription({ className, ...props }) {
 export const Sheet = DialogPrimitive.Root;
 
 export function SheetContent({ className, side = "right", children, ...props }) {
-  const position = side === "left" ? "inset-y-0 left-0 h-full w-72 border-r" : "inset-y-0 right-0 h-full w-full border-l sm:w-[48vw] sm:max-w-3xl";
+  const position =
+    side === "left"
+      ? "bottom-2 left-2 top-2 w-72 rounded-2xl border"
+      : "bottom-2 right-2 top-2 w-[min(100%-1rem,48rem)] rounded-2xl border sm:w-[min(48vw,48rem)]";
   return (
     <DialogPrimitive.Portal>
       <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/50" />
       <DialogPrimitive.Content
-        className={cn("fixed z-50 flex flex-col bg-background text-foreground shadow-lg", position, className)}
+        className={cn("fixed z-50 flex flex-col overflow-hidden bg-background text-foreground shadow-lg", position, className)}
         {...props}
       >
         {children}

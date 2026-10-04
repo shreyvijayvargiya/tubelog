@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
-import { BookOpen, Github, LayoutDashboard, Library, Menu, Monitor, Moon, Settings, Star, Sun, Tv, Youtube } from "lucide-react";
+import { BookOpen, Github, LayoutDashboard, Library, Menu, Monitor, Moon, PanelLeftClose, PanelLeftOpen, Settings, Star, Sun, Tv, Youtube } from "lucide-react";
 import { api, onLibraryChange } from "../../lib/api.js";
 import { useConfig } from "../../lib/useConfig.js";
 import { cn } from "../../lib/utils.js";
@@ -19,9 +19,10 @@ const NAV = [
 
 export function AppShell() {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
   const [channels, setChannels] = useState([]);
   const { config } = useConfig();
-  const github = config?.github || "https://github.com/yourname/tubelog";
+  const github = config?.github || "https://github.com/shreyvijayvargiya/tubelog";
 
   useEffect(() => {
     let active = true;
@@ -43,9 +44,9 @@ export function AppShell() {
   }, []);
 
   return (
-    <div className="flex h-screen overflow-hidden bg-background text-foreground">
-      <aside className="hidden w-60 shrink-0 border-r border-border md:flex md:flex-col">
-        <Sidebar channels={channels} />
+    <div className="flex h-screen gap-2 overflow-hidden bg-muted p-2 text-foreground">
+      <aside className={cn("hidden shrink-0 overflow-hidden rounded-2xl border border-border bg-background md:flex md:flex-col", collapsed ? "w-14" : "w-60")}>
+        <Sidebar channels={channels} collapsed={collapsed} onToggle={() => setCollapsed((open) => !open)} />
       </aside>
       <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
         <SheetContent side="left" className="w-72 p-0">
@@ -53,7 +54,7 @@ export function AppShell() {
           <Sidebar channels={channels} onNavigate={() => setMobileOpen(false)} />
         </SheetContent>
       </Sheet>
-      <div className="flex min-w-0 flex-1 flex-col">
+      <div className="flex min-w-0 flex-1 flex-col overflow-hidden rounded-2xl border border-border bg-background">
         <header className="border-b border-border">
           <div className="flex items-center gap-2 px-3 py-2 sm:px-4">
             <Button variant="ghost" size="icon" className="md:hidden" aria-label="Open menu" onClick={() => setMobileOpen(true)}>
@@ -132,15 +133,23 @@ function ThemeMenu() {
   );
 }
 
-function Sidebar({ channels, onNavigate }) {
+function Sidebar({ channels, onNavigate, collapsed = false, onToggle }) {
   return (
     <div className="flex h-full flex-col">
-      <div className="flex items-center gap-2 px-4 py-4">
-        <Library className="h-4 w-4" />
-        <div>
-          <p className="text-sm font-semibold tracking-tight">TubeLog</p>
-          <p className="text-xs text-muted-foreground">Local library</p>
-        </div>
+      <div className={cn("flex items-center gap-2 py-3", collapsed ? "justify-center px-2" : "px-3")}>
+        {onToggle ? (
+          <Button variant="ghost" size="icon" aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"} onClick={onToggle}>
+            {collapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
+          </Button>
+        ) : (
+          <Library className="h-4 w-4" />
+        )}
+        {collapsed ? null : (
+          <div className="min-w-0">
+            <p className="text-sm font-semibold tracking-tight">TubeLog</p>
+            <p className="text-xs text-muted-foreground">Local library</p>
+          </div>
+        )}
       </div>
       <nav className="space-y-1 px-2">
         {NAV.map((item) => (
@@ -149,21 +158,27 @@ function Sidebar({ channels, onNavigate }) {
             to={item.to}
             end={item.end}
             onClick={onNavigate}
+            title={collapsed ? item.label : undefined}
             className={({ isActive }) =>
               cn(
-                "flex items-center gap-2 rounded-md px-3 py-2 text-sm",
+                "flex items-center gap-2 rounded-md py-2 text-sm",
+                collapsed ? "justify-center px-2" : "px-3",
                 isActive ? "bg-accent font-medium text-foreground" : "text-muted-foreground hover:bg-accent hover:text-foreground",
               )
             }
           >
-            <item.icon className="h-4 w-4" />
-            {item.label}
+            <item.icon className="h-4 w-4 shrink-0" />
+            {collapsed ? null : item.label}
           </NavLink>
         ))}
       </nav>
-      <Separator className="my-3" />
-      <div className="px-4 pb-2 text-xs font-medium tracking-wide text-muted-foreground">LIBRARY</div>
-      <div className="min-h-0 flex-1 space-y-1 overflow-y-auto px-2 pb-4">
+      {collapsed ? null : (
+        <>
+          <Separator className="my-3" />
+          <div className="px-4 pb-2 text-xs font-medium tracking-wide text-muted-foreground">LIBRARY</div>
+        </>
+      )}
+      <div className={cn("min-h-0 flex-1 space-y-1 overflow-y-auto px-2 pb-4", collapsed && "hidden")}>
         {channels.length === 0 ? <p className="px-3 py-2 text-sm text-muted-foreground">No channels yet</p> : null}
         {channels.map((channel) => (
           <NavLink

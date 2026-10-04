@@ -2,13 +2,14 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { api, emitLibraryChange } from "../lib/api.js";
 import { useConfig } from "../lib/useConfig.js";
-import { Button, Label } from "./ui/button.jsx";
+import { Button, Input, Label } from "./ui/button.jsx";
 import { Checkbox, Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "./ui/dialog.jsx";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/tabs.jsx";
 
 export function BlogDialog({ videos = [], open, onOpenChange, onDone }) {
   const { config } = useConfig();
   const [model, setModel] = useState("");
+  const [customModel, setCustomModel] = useState("");
   const [style, setStyle] = useState("educational");
   const [language, setLanguage] = useState("English");
   const [takeaways, setTakeaways] = useState(true);
@@ -20,6 +21,7 @@ export function BlogDialog({ videos = [], open, onOpenChange, onDone }) {
   useEffect(() => {
     if (!open || !config) return;
     setModel(config.ai.model);
+    setCustomModel("");
     setStyle(config.blog.style || "educational");
     setLanguage(config.blog.language || "English");
     setTakeaways(true);
@@ -40,7 +42,7 @@ export function BlogDialog({ videos = [], open, onOpenChange, onDone }) {
           method: "POST",
           body: {
             video: video.id,
-            model,
+            model: customModel.trim() || model,
             style,
             language,
             includeTakeaways: takeaways,
@@ -64,8 +66,11 @@ export function BlogDialog({ videos = [], open, onOpenChange, onDone }) {
   }
 
   const styles = config?.blog?.styles || [];
-  const models = config?.ai?.models || [];
+  const models = (config?.ai?.models || []).map((item) =>
+    typeof item === "string" ? { id: item, label: item, free: item.endsWith(":free") } : item,
+  );
   const languages = config?.blog?.languages || ["English"];
+  const selected = models.find((item) => item.id === model) || models[0];
 
   return (
     <Dialog open={open} onOpenChange={(next) => !busy && onOpenChange(next)}>
@@ -80,18 +85,35 @@ export function BlogDialog({ videos = [], open, onOpenChange, onDone }) {
         </DialogHeader>
         <div className="space-y-4">
           <Field label="Model">
-            <Select value={model || models[0] || "google/gemini-2.5-flash"} onValueChange={setModel} disabled={busy}>
+            <Select
+              value={model || selected?.id || "google/gemma-4-31b-it:free"}
+              onValueChange={(value) => {
+                setModel(value);
+                setCustomModel("");
+              }}
+              disabled={busy}
+            >
               <SelectTrigger>
                 <SelectValue placeholder="Model" />
               </SelectTrigger>
               <SelectContent>
-                {(models.length ? models : ["google/gemini-2.5-flash"]).map((item) => (
-                  <SelectItem key={item} value={item}>
-                    {item}
+                {models.map((item) => (
+                  <SelectItem key={item.id} value={item.id}>
+                    {item.free ? `${item.label} · FREE` : item.label}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
+            <p className="text-xs leading-5 text-muted-foreground">
+              FREE models do not spend OpenRouter credits. You still need an API key.
+            </p>
+            <Input
+              value={customModel}
+              onChange={(event) => setCustomModel(event.target.value)}
+              placeholder="Custom model id, such as provider/model:free"
+              disabled={busy}
+              aria-label="Custom model"
+            />
           </Field>
           <Field label="Style">
             <Select value={style} onValueChange={setStyle} disabled={busy}>

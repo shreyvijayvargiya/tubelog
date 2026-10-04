@@ -18,7 +18,14 @@ export function loadConfig() {
   const github = process.env.TUBELOG_GITHUB_URL?.trim();
   if (model) {
     config.ai.model = model;
-    if (!config.ai.models.includes(model)) config.ai.models.unshift(model);
+    const ids = config.ai.models.map((entry) => (typeof entry === "string" ? entry : entry.id));
+    if (!ids.includes(model)) {
+      config.ai.models.unshift({
+        id: model,
+        label: model,
+        free: model.endsWith(":free") || model === "openrouter/free",
+      });
+    }
   }
   if (videosDir) config.videosDir = videosDir;
   if (github) config.github = github;
