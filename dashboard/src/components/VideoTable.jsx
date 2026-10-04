@@ -13,6 +13,7 @@ import { toast } from "sonner";
 import { api, emitLibraryChange } from "../lib/api.js";
 import { cn, copyText, formatDuration, formatPublished } from "../lib/utils.js";
 import { BlogDialog } from "./BlogDialog.jsx";
+import { IgDialog } from "./IgDialog.jsx";
 import { VideoSheet } from "./VideoSheet.jsx";
 import { Badge, Button, Input, Skeleton } from "./ui/button.jsx";
 import { Checkbox, Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "./ui/dialog.jsx";
@@ -40,6 +41,7 @@ export function VideoTable({
   const [sheetId, setSheetId] = useState("");
   const [sheetTab, setSheetTab] = useState("overview");
   const [blogTargets, setBlogTargets] = useState([]);
+  const [igTarget, setIgTarget] = useState(null);
   const [pendingDelete, setPendingDelete] = useState([]);
 
   useEffect(() => {
@@ -313,6 +315,18 @@ export function VideoTable({
           if (!next) setSheetId("");
         }}
         onGenerate={(video) => setBlogTargets([{ id: video.id, title: video.title }])}
+        onGenerateInstagram={(video) => {
+          setSheetTab("instagram");
+          setIgTarget({ id: video.id, title: video.title });
+        }}
+      />
+      <IgDialog
+        video={igTarget}
+        open={Boolean(igTarget)}
+        onOpenChange={(next) => {
+          if (!next) setIgTarget(null);
+        }}
+        onDone={() => setSheetTab("instagram")}
       />
       <BlogDialog
         videos={blogTargets}

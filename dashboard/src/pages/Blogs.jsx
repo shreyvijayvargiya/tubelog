@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { BlogDialog } from "../components/BlogDialog.jsx";
+import { IgDialog } from "../components/IgDialog.jsx";
 import { VideoSheet } from "../components/VideoSheet.jsx";
 import { Button, Card, Input } from "../components/ui/button.jsx";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/tabs.jsx";
@@ -14,6 +15,7 @@ export function BlogsPage() {
   const [sheetId, setSheetId] = useState("");
   const [sheetTab, setSheetTab] = useState("blog");
   const [blogTarget, setBlogTarget] = useState(null);
+  const [igTarget, setIgTarget] = useState(null);
 
   useEffect(() => {
     let active = true;
@@ -114,6 +116,18 @@ export function BlogsPage() {
           if (!next) setSheetId("");
         }}
         onGenerate={(video) => setBlogTarget({ id: video.id, title: video.title })}
+        onGenerateInstagram={(video) => {
+          setSheetTab("instagram");
+          setIgTarget({ id: video.id, title: video.title });
+        }}
+      />
+      <IgDialog
+        video={igTarget}
+        open={Boolean(igTarget)}
+        onOpenChange={(next) => {
+          if (!next) setIgTarget(null);
+        }}
+        onDone={() => setSheetTab("instagram")}
       />
       <BlogDialog
         videos={blogTarget ? [blogTarget] : []}

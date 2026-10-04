@@ -1,5 +1,5 @@
 import "./env.js";
-import { mkdir, readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { excerptAround, fail, plainExcerpt, safeJoin, slugify, videosDirectory } from "./utils.js";
 
@@ -356,10 +356,84 @@ export async function writeVideo(video) {
   return readVideoFile(file);
 }
 
+function instagramDir(slug, videoId) {
+  return safeJoin(videosDirectory(), assertSlug(slug), "ig", assertVideoId(videoId));
+}
+
+export async function readInstagram(slug, videoId) {
+  try {
+    const raw = await readFile(path.join(instagramDir(slug, videoId), "carousel.json"), "utf8");
+    const data = JSON.parse(raw);
+    if (!data || !Array.isArray(data.slides) || !data.slides.length) return null;
+    return data;
+  } catch (error) {
+    if (error?.code === "ENOENT") return null;
+    return null;
+  }
+}
+
+export function publicInstagram(videoId, record) {
+  if (!record) return { generated: false, theme: "", caption: "", slides: [] };
+  return {
+    generated: true,
+    theme: record.theme || "",
+    themeLabel: record.themeLabel || "",
+    model: record.model || "",
+    imageModel: record.imageModel || "",
+    generatedAt: record.generatedAt || "",
+    caption: record.caption || "",
+    slides: record.slides.map((slide) => ({
+      index: slide.index,
+      role: slide.role || "",
+      headline: slide.headline || "",
+      text: slide.text || "",
+      image: `/api/videos/${videoId}/instagram/${slide.index}`,
+    })),
+  };
+}
+
+export async function saveInstagram(video, record, files) {
+  const finalDir = instagramDir(video.channelSlug, video.videoId);
+  const tempDir = `${finalDir}.tmp`;
+  await rm(tempDir, { recursive: true, force: true });
+  await ensureDir(tempDir);
+  const slides = [];
+  for (const file of files) {
+    const name = `${file.index}.${file.ext}`;
+    await writeFile(path.join(tempDir, name), file.buffer);
+    const slide = record.slides.find((item) => item.index === file.index);
+    slides.push({ ...slide, file: name, type: file.type });
+  }
+  const payload = { ...record, slides };
+  const json = `${JSON.stringify(payload, null, 2)}\n`;
+  if (/OPENROUTER_API_KEY|sk-or-/i.test(json)) {
+    await rm(tempDir, { recursive: true, force: true });
+    throw fail("Refusing to store a secret in a carousel file", 400);
+  }
+  await writeFile(path.join(tempDir, "carousel.json"), json);
+  await rm(finalDir, { recursive: true, force: true });
+  await rename(tempDir, finalDir);
+  return payload;
+}
+
+export async function readInstagramSlide(slug, videoId, index) {
+  const record = await readInstagram(slug, videoId);
+  const slide = record?.slides?.find((item) => item.index === Number(index));
+  if (!slide?.file || !/^[1-8]\.(png|jpe?g|webp)$/.test(slide.file)) return null;
+  const file = safeJoin(instagramDir(slug, videoId), slide.file);
+  const body = await readFile(file);
+  const type = slide.type || (slide.file.endsWith(".png") ? "image/png" : slide.file.endsWith(".webp") ? "image/webp" : "image/jpeg");
+  return { body, type };
+}
+
 export async function deleteVideo(videoId) {
   const file = await findVideoFile(videoId);
   if (!file) return false;
+  const video = await readVideoFile(file);
   await rm(file);
+  if (video?.channelSlug) {
+    await rm(instagramDir(video.channelSlug, video.videoId), { recursive: true, force: true });
+  }
   return true;
 }
 

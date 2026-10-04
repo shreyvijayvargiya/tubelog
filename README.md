@@ -2,6 +2,10 @@
 
 Turn YouTube into your local Markdown learning library.
 
+[![Watch the TubeLog explainer](dashboard/public/screenshots/explainer.jpg)](https://www.youtube.com/watch?v=S-4vWLyG5gw)
+
+[Watch the explainer on YouTube](https://www.youtube.com/watch?v=S-4vWLyG5gw)
+
 Fetch channels. Archive transcripts. Generate AI blogs. Browse everything in a local dashboard.
 
 TubeLog is a local YouTube archive, a Markdown knowledge base, and an AI study writer. The video is the source. The transcript is the raw knowledge. The blog is the lesson. The filesystem is the database.
@@ -33,17 +37,71 @@ Nothing is stored in a hosted database. API keys stay in `.env` and are never wr
 - Save one Markdown file per video
 - Run the same sync again without duplicating files
 - Generate an educational blog with OpenRouter only when you pass `--ai` or `generateBlog: true`
+- Turn a transcript into an Instagram carousel with a theme, then render the slide images
 - Search the local library
 - Browse channels, transcripts, and blogs in a Vite + React dashboard
+- Start from 100 built-in channels across Tech, Programming, Coding, AI, SAAS, and News
 - Use the same core from the CLI, the HTTP API, and the dashboard
 
 YouTube Shorts are skipped. Each sync archives up to `sync.maxVideos` new videos (default 20). Run sync again to continue through the channel.
 
-## Demo
+## Dashboard
 
-Screenshots are not included in this repository.
+After `npm run dev`, open http://localhost:3000. An empty library asks for a channel or video. After the first archive, the home page shows counts and a video table. Discover already lists 100 channels you can scrape locally, including Y Combinator and Greg Isenberg.
 
-After `npm run dev`, open http://localhost:3000. An empty library asks for a channel or video. After the first archive, the dashboard shows counts and a video table. A row opens a side panel with the overview, transcript, and AI blog.
+### Home
+
+Three onboarding cards, library counts, and the latest Markdown videos.
+
+![Dashboard home](dashboard/public/screenshots/dashboard.png)
+
+### Discover
+
+Search and filter channels for Tech, Programming, Coding, AI, SAAS, and News. A card opens that channel.
+
+![Discover](dashboard/public/screenshots/discover.png)
+
+### Discover a channel
+
+**Start scraping** sits at the top right. It runs the local agent for that channel and archives the next 20 transcripts. Already archived videos are skipped. Run it again to continue.
+
+![Y Combinator details](dashboard/public/screenshots/discover-channel.png)
+
+### Channels
+
+Channels already saved on this machine. Each card opens that folder of Markdown files.
+
+![Channels](dashboard/public/screenshots/channels.png)
+
+### Channel
+
+One saved channel, with search, sync, and a way to generate blogs that are still missing.
+
+![Channel](dashboard/public/screenshots/channel.png)
+
+### Videos
+
+Every archived video, across channels.
+
+![Videos](dashboard/public/screenshots/videos.png)
+
+### Video
+
+A row opens a side panel. The YouTube video plays in the panel, with the overview, transcript, and AI blog in tabs.
+
+![Video details](dashboard/public/screenshots/video.png)
+
+### Blogs
+
+Lessons written from transcripts. Open one to read it, regenerate it, or jump back to the video.
+
+![Blogs](dashboard/public/screenshots/blogs.png)
+
+### Settings
+
+Public config only. The OpenRouter key stays in `.env` and is never written into Markdown.
+
+![Settings](dashboard/public/screenshots/settings.png)
 
 ## Architecture
 
@@ -181,6 +239,7 @@ Each route also has an npm script. These call the API in-process, so the dev ser
 | `npm run api:youtube:transcript -- No-JPdFvYWU` | `POST /api/youtube/transcript` |
 | `npm run api:sync -- https://youtube.com/@fireship --ai` | `POST /api/youtube/sync` |
 | `npm run api:ai:blog -- No-JPdFvYWU --style tutorial` | `POST /api/ai/blog` |
+| `npm run api:ai:instagram -- No-JPdFvYWU --theme hook` | `POST /api/ai/instagram` |
 | `npm run api:regenerate -- No-JPdFvYWU` | `POST /api/videos/:id/regenerate` |
 | `npm run api:delete -- No-JPdFvYWU` | `DELETE /api/videos/:id` |
 
@@ -464,6 +523,31 @@ curl -X POST http://localhost:3000/api/ai/blog \
 
 Styles: `educational`, `tutorial`, `explainer`, `technical`, `beginner`.
 
+### `POST /api/ai/instagram`
+
+Writes a six-slide Instagram carousel from a saved transcript and draws each slide with Google Nano Banana. The slide copy uses an OpenRouter text model. Image generation uses OpenRouter credits.
+
+Request:
+
+```json
+{
+  "video": "No-JPdFvYWU",
+  "theme": "hook",
+  "model": "google/gemma-4-31b-it:free",
+  "imageModel": "google/gemini-2.5-flash-image"
+}
+```
+
+`theme` is one of `hook`, `lesson`, `steps`, `quotes`, `myth`, `list`. Each theme is a hardcoded hook for the carousel. `model` writes the words. `imageModel` draws the images.
+
+```bash
+curl -X POST http://localhost:3000/api/ai/instagram \
+  -H "Content-Type: application/json" \
+  -d '{"video":"No-JPdFvYWU","theme":"hook"}'
+```
+
+`GET /api/videos/:id` includes the carousel. Each slide image is `GET /api/videos/:id/instagram/:index`.
+
 ### `POST /api/videos/:id/regenerate`
 
 Same options as `/api/ai/blog`. Always writes a new blog over the existing one.
@@ -512,6 +596,38 @@ The default model is `google/gemini-2.5-flash`. Change it with `OPENROUTER_MODEL
 
 Sync without `--ai`, and `generateBlog: false`, never call OpenRouter.
 
+## Instagram carousels
+
+Open a saved video and choose **IG Posts**, next to **AI Blog**. **Create IG posts** opens the same kind of dialog as blog generation.
+
+Pick one of six themes. The theme is the hook for the carousel:
+
+| Theme | What it does |
+| --- | --- |
+| Scroll-stopping hook | A sharp claim, then the proof |
+| Teach one idea | One lesson, and a takeaway on the last slide |
+| Step by step | Numbered steps from the video |
+| Quote cards | Short lines the video actually says |
+| Myth and fact | A common belief against what the video says |
+| Save-worthy list | A list of points, then a close |
+
+A FREE OpenRouter text model writes six slides and a caption from the transcript. Google Nano Banana (`google/gemini-2.5-flash-image`) draws a portrait image for each slide. Nano Banana 2 Lite and Nano Banana 2 are the other image choices. Image calls spend OpenRouter credits. The FREE text models do not.
+
+The carousel renders in the IG Posts tab. Copy the caption from there. Images are saved beside the video:
+
+```text
+videos/<channel>/ig/<video-id>/
+  carousel.json
+  1.png
+  2.png
+```
+
+Run it again to replace that carousel. Deleting the video removes the images too.
+
+```bash
+npm run api:ai:instagram -- No-JPdFvYWU --theme lesson
+```
+
 ## Filesystem
 
 ```text
@@ -520,6 +636,10 @@ videos/
     channel.json
     No-JPdFvYWU.md
     abc123def45.md
+    ig/
+      No-JPdFvYWU/
+        carousel.json
+        1.png
 ```
 
 `channel.json` holds the channel id, name, handle, URL, description, and thumbnail.
@@ -666,6 +786,8 @@ npm start
 **YouTube blocked the request.** A 429 or consent wall is treated as retryable. That video is not marked as permanently missing, so a later sync can retry it.
 
 **OpenRouter rejected the key.** `POST /api/ai/blog` returns an error and does not print the key. Replace `OPENROUTER_API_KEY` and restart.
+
+**Instagram images fail with a credits error.** Slide copy can use a FREE text model. Drawing the carousel uses Google Nano Banana, which spends OpenRouter credits.
 
 **Sync stopped after 20 videos.** That is `sync.maxVideos`. Run sync again. Already archived videos are skipped, and the next new videos are saved.
 

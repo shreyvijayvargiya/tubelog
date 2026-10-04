@@ -2,6 +2,7 @@ import "./env.js";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { blogOptions } from "./ai.js";
+import { generateInstagram } from "./instagram.js";
 import { archiveVideo, generateVideoBlog, syncChannel } from "./sync.js";
 import {
   deleteVideo,
@@ -10,6 +11,9 @@ import {
   getChannel,
   listChannels,
   listVideos,
+  publicInstagram,
+  readInstagram,
+  readInstagramSlide,
   readVideo,
   searchVideos,
   summarize,
@@ -61,6 +65,15 @@ app.get("/api/config", (c) => {
       models: config.ai.models,
     },
     blog: config.blog,
+    instagram: {
+      imageModel: config.instagram?.imageModel || "",
+      imageModels: config.instagram?.imageModels || [],
+      themes: (config.instagram?.themes || []).map((theme) => ({
+        id: theme.id,
+        label: theme.label,
+        hook: theme.hook,
+      })),
+    },
     sync: {
       maxVideos: config.sync.maxVideos,
       maxPages: config.sync.maxPages,
@@ -129,10 +142,34 @@ app.get("/api/videos/:id/markdown", async (c) => {
   });
 });
 
+app.get("/api/videos/:id/instagram/:index", async (c) => {
+  const video = await readVideo(c.req.param("id"));
+  if (!video) return c.json({ error: "Video not found" }, 404);
+  const slide = await readInstagramSlide(video.channelSlug, video.videoId, c.req.param("index"));
+  if (!slide) return c.json({ error: "Slide not found" }, 404);
+  return c.body(slide.body, 200, {
+    "Content-Type": slide.type,
+    "Cache-Control": "private, max-age=3600",
+  });
+});
+
+app.get("/api/videos/:id/instagram", async (c) => {
+  const video = await readVideo(c.req.param("id"));
+  if (!video) return c.json({ error: "Video not found" }, 404);
+  const record = await readInstagram(video.channelSlug, video.videoId);
+  return c.json({ videoId: video.videoId, instagram: publicInstagram(video.videoId, record) });
+});
+
 app.get("/api/videos/:id", async (c) => {
   const video = await readVideo(c.req.param("id"));
   if (!video) return c.json({ error: "Video not found" }, 404);
-  return c.json({ video: detail(video, { updatedAt: video.updatedAt }) });
+  const record = await readInstagram(video.channelSlug, video.videoId);
+  return c.json({
+    video: {
+      ...detail(video, { updatedAt: video.updatedAt }),
+      instagram: publicInstagram(video.videoId, record),
+    },
+  });
 });
 
 app.get("/api/search", async (c) => {
@@ -222,6 +259,33 @@ app.post("/api/ai/blog", async (c) => {
     generatedAt: video.blogGeneratedAt,
     channel: video.channel,
     channelSlug: video.channelSlug,
+  });
+});
+
+app.post("/api/ai/instagram", async (c) => {
+  const body = await readJson(c);
+  if (!body.video) throw fail("video is required", 400);
+  const { id } = resolveVideo(body.video);
+  let video = await readVideo(id);
+  if (!video || !video.transcriptAvailable) {
+    video = await archiveVideo(id, { generateBlog: false });
+  }
+  if (!video.transcriptAvailable) {
+    throw fail(video.transcriptError || "Transcript unavailable, so an Instagram carousel cannot be created", 422);
+  }
+  const saved = await generateInstagram(video, {
+    theme: body.theme,
+    model: body.model,
+    imageModel: body.imageModel,
+    language: body.language,
+  });
+  return c.json({
+    videoId: video.videoId,
+    title: video.title,
+    url: video.url,
+    channel: video.channel,
+    channelSlug: video.channelSlug,
+    instagram: publicInstagram(video.videoId, saved),
   });
 });
 

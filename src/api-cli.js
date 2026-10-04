@@ -21,7 +21,7 @@ function positional() {
   const skip = new Set();
   for (let index = 0; index < rest.length; index += 1) {
     const arg = rest[index];
-    if (arg === "--limit" || arg === "--style" || arg === "--model" || arg === "--language" || arg === "--channel") {
+    if (arg === "--limit" || arg === "--style" || arg === "--model" || arg === "--language" || arg === "--channel" || arg === "--theme" || arg === "--image-model") {
       skip.add(index);
       if (rest[index + 1] && !rest[index + 1].startsWith("--")) skip.add(index + 1);
     }
@@ -71,6 +71,7 @@ Usage:
   npm run api:youtube:transcript -- <video-url-or-id> [--ai]
   npm run api:sync -- <channel-url> [--ai] [--force] [--limit N]
   npm run api:ai:blog -- <video-url-or-id> [--style name] [--model name]
+  npm run api:ai:instagram -- <video-url-or-id> [--theme id] [--model name] [--image-model name]
   npm run api:regenerate -- <video-id> [--style name]
   npm run api:delete -- <video-id>
 
@@ -180,6 +181,16 @@ const routes = {
     const video = required(positional()[0], "video url or id");
     if (!video) return undefined;
     return call("POST", "/api/ai/blog", { video, ...blogBody() });
+  },
+  "ai-instagram"() {
+    const video = required(positional()[0], "video url or id");
+    if (!video) return undefined;
+    const body = { video, ...blogBody() };
+    const theme = option("--theme");
+    const imageModel = option("--image-model");
+    if (theme) body.theme = theme;
+    if (imageModel) body.imageModel = imageModel;
+    return call("POST", "/api/ai/instagram", body);
   },
   regenerate() {
     const id = required(positional()[0], "video id");

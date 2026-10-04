@@ -30,6 +30,7 @@
     "api:youtube:transcript": "node src/api-cli.js youtube-transcript",
     "api:sync": "node src/api-cli.js sync",
     "api:ai:blog": "node src/api-cli.js ai-blog",
+    "api:ai:instagram": "node src/api-cli.js ai-instagram",
     "api:regenerate": "node src/api-cli.js regenerate",
     "api:delete": "node src/api-cli.js delete-video"
   },

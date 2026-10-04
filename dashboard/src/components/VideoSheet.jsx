@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Copy, ExternalLink, FileText, RefreshCw, Sparkles, X } from "lucide-react";
+import { Copy, ExternalLink, FileText, Images, RefreshCw, Sparkles, X } from "lucide-react";
 import { toast } from "sonner";
 import { api, onLibraryChange } from "../lib/api.js";
 import { copyText, formatDuration, formatPublished, proseToMarkdown, transcriptToMarkdown } from "../lib/utils.js";
@@ -8,11 +8,12 @@ import { Badge, Button, Separator, Skeleton } from "./ui/button.jsx";
 import { DialogTitle, Sheet, SheetContent } from "./ui/dialog.jsx";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs.jsx";
 
-export function VideoSheet({ videoId, open, onOpenChange, tab = "overview", onTabChange, onGenerate }) {
+export function VideoSheet({ videoId, open, onOpenChange, tab = "overview", onTabChange, onGenerate, onGenerateInstagram }) {
   const [video, setVideo] = useState(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const blogRef = useRef("");
+  const igRef = useRef("");
   const onTabChangeRef = useRef(onTabChange);
   onTabChangeRef.current = onTabChange;
 
@@ -20,6 +21,7 @@ export function VideoSheet({ videoId, open, onOpenChange, tab = "overview", onTa
     if (!open || !videoId) return undefined;
     let active = true;
     blogRef.current = "";
+    igRef.current = "";
     setVideo(null);
     setLoading(true);
     setError("");
@@ -29,8 +31,11 @@ export function VideoSheet({ videoId, open, onOpenChange, tab = "overview", onTa
         .then((data) => {
           if (!active) return;
           const nextBlog = data.video?.blog || "";
+          const nextIg = data.video?.instagram?.generatedAt || "";
           if (quiet && nextBlog && nextBlog !== blogRef.current) onTabChangeRef.current?.("blog");
+          if (quiet && nextIg && nextIg !== igRef.current) onTabChangeRef.current?.("instagram");
           blogRef.current = nextBlog;
+          igRef.current = nextIg;
           setVideo(data.video);
           setError("");
         })
@@ -54,6 +59,12 @@ export function VideoSheet({ videoId, open, onOpenChange, tab = "overview", onTa
     if (!video?.blog) return;
     await copyText(video.blog);
     toast.success("Blog copied.");
+  }
+
+  async function copyCaption() {
+    if (!video?.instagram?.caption) return;
+    await copyText(video.instagram.caption);
+    toast.success("Caption copied.");
   }
 
   return (
@@ -87,6 +98,10 @@ export function VideoSheet({ videoId, open, onOpenChange, tab = "overview", onTa
             <Sparkles className="h-4 w-4" />
             Generate Blog
           </Button>
+          <Button size="sm" variant="outline" onClick={() => video && onGenerateInstagram?.(video)} disabled={!video}>
+            <Images className="h-4 w-4" />
+            Create IG posts
+          </Button>
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
           {video?.id ? (
@@ -114,6 +129,7 @@ export function VideoSheet({ videoId, open, onOpenChange, tab = "overview", onTa
                 <TabsTrigger value="overview">Overview</TabsTrigger>
                 <TabsTrigger value="transcript">Transcript</TabsTrigger>
                 <TabsTrigger value="blog">AI Blog</TabsTrigger>
+                <TabsTrigger value="instagram">IG Posts</TabsTrigger>
               </TabsList>
               <TabsContent value="overview" className="space-y-4">
                 {video.description ? (
@@ -158,6 +174,50 @@ export function VideoSheet({ videoId, open, onOpenChange, tab = "overview", onTa
                     <Button onClick={() => onGenerate?.(video)}>
                       <Sparkles className="h-4 w-4" />
                       Generate Blog
+                    </Button>
+                  </div>
+                )}
+              </TabsContent>
+              <TabsContent value="instagram">
+                {video.instagram?.generated && video.instagram.slides?.length ? (
+                  <div className="space-y-4">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Button variant="outline" size="sm" onClick={() => onGenerateInstagram?.(video)}>
+                        <RefreshCw className="h-4 w-4" />
+                        Regenerate
+                      </Button>
+                      {video.instagram.caption ? (
+                        <Button variant="outline" size="sm" onClick={copyCaption}>
+                          <Copy className="h-4 w-4" />
+                          Copy caption
+                        </Button>
+                      ) : null}
+                      {video.instagram.themeLabel ? <Badge variant="outline">{video.instagram.themeLabel}</Badge> : null}
+                    </div>
+                    {video.instagram.caption ? <p className="text-sm leading-6">{video.instagram.caption}</p> : null}
+                    <div className="flex snap-x snap-mandatory gap-3 overflow-x-auto pb-2">
+                      {video.instagram.slides.map((slide) => (
+                        <figure key={slide.index} className="w-52 shrink-0 snap-start">
+                          <img
+                            src={`${slide.image}?v=${encodeURIComponent(video.instagram.generatedAt || "")}`}
+                            alt={slide.headline || `Slide ${slide.index}`}
+                            className="aspect-[4/5] w-full rounded-xl border border-border bg-muted object-cover"
+                          />
+                          <figcaption className="mt-2 space-y-1">
+                            <p className="text-xs text-muted-foreground">Slide {slide.index}</p>
+                            <p className="text-sm font-medium leading-5">{slide.headline}</p>
+                            {slide.text ? <p className="text-xs leading-5 text-muted-foreground">{slide.text}</p> : null}
+                          </figcaption>
+                        </figure>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <p className="text-sm text-muted-foreground">No Instagram carousel yet. Pick a theme and turn this transcript into posts.</p>
+                    <Button onClick={() => onGenerateInstagram?.(video)}>
+                      <Images className="h-4 w-4" />
+                      Create IG posts
                     </Button>
                   </div>
                 )}
