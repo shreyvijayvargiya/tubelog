@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { ArrowRight, BookOpen, Library, Plus, Tv } from "lucide-react";
 import { toast } from "sonner";
 import { AddContentDialog } from "../components/AddContentDialog.jsx";
+import { ChannelCatalog } from "./Discover.jsx";
 import { VideoTable } from "../components/VideoTable.jsx";
 import { Button, Card, Input } from "../components/ui/button.jsx";
 import { Checkbox } from "../components/ui/dialog.jsx";
@@ -72,6 +73,7 @@ export function DashboardPage() {
         </>
       )}
       <AddContentDialog open={addOpen} onOpenChange={setAddOpen} />
+      <ChannelCatalog />
     </div>
   );
 }

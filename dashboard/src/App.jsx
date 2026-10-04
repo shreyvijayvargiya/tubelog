@@ -7,6 +7,8 @@ import { BlogsPage } from "./pages/Blogs.jsx";
 import { ChannelPage } from "./pages/Channel.jsx";
 import { ChannelsPage } from "./pages/Channels.jsx";
 import { DashboardPage } from "./pages/Dashboard.jsx";
+import { DiscoverChannelPage } from "./pages/DiscoverChannel.jsx";
+import { DiscoverPage } from "./pages/Discover.jsx";
 import { SettingsPage } from "./pages/Settings.jsx";
 import { VideosPage } from "./pages/Videos.jsx";
 
@@ -18,6 +20,8 @@ export function App() {
         <Routes>
           <Route element={<AppShell />}>
             <Route path="/" element={<DashboardPage />} />
+            <Route path="/discover" element={<DiscoverPage />} />
+            <Route path="/discover/:id" element={<DiscoverChannelPage />} />
             <Route path="/videos" element={<VideosPage />} />
             <Route path="/channels" element={<ChannelsPage />} />
             <Route path="/channels/:slug" element={<ChannelPage />} />
