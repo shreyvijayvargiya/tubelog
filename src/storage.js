@@ -5,6 +5,7 @@ import { excerptAround, fail, plainExcerpt, safeJoin, slugify, videosDirectory }
 
 const VIDEO_ID = /^[A-Za-z0-9_-]{11}$/;
 const SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+const LANG_KEY = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const MISSING_TRANSCRIPT = "_Transcript unavailable._";
 
 function assertVideoId(videoId) {
@@ -426,6 +427,77 @@ export async function readInstagramSlide(slug, videoId, index) {
   return { body, type };
 }
 
+export function translationDir(slug, videoId) {
+  return safeJoin(videosDirectory(), assertSlug(slug), "translations", assertVideoId(videoId));
+}
+
+export function assertLanguageKey(key) {
+  const value = String(key || "").trim();
+  if (!LANG_KEY.test(value) || value.length > 24) throw fail("Invalid language", 400);
+  return value;
+}
+
+export async function readTranslations(slug, videoId) {
+  let names = [];
+  try {
+    names = await readdir(translationDir(slug, videoId));
+  } catch {
+    return [];
+  }
+  const records = [];
+  for (const name of names.filter((item) => item.endsWith(".json"))) {
+    try {
+      const data = JSON.parse(await readFile(path.join(translationDir(slug, videoId), name), "utf8"));
+      if (data?.key && data?.audio) records.push(data);
+    } catch {
+      /* skip unreadable records */
+    }
+  }
+  records.sort((a, b) => String(b.generatedAt || "").localeCompare(String(a.generatedAt || "")));
+  return records;
+}
+
+export function publicTranslation(videoId, record) {
+  const base = `/api/videos/${videoId}/translations/${record.key}`;
+  return {
+    key: record.key,
+    language: record.language || record.key,
+    voice: record.voice || "",
+    model: record.model || "",
+    ttsModel: record.ttsModel || "",
+    generatedAt: record.generatedAt || "",
+    characters: record.characters || 0,
+    truncated: Boolean(record.truncated),
+    audio: `${base}/audio`,
+    text: `${base}/text`,
+    video: record.video ? `${base}/video` : "",
+    videoSkipped: record.videoSkipped || "",
+    folder: record.folder || "",
+  };
+}
+
+export async function publicTranslations(slug, videoId) {
+  return (await readTranslations(slug, videoId)).map((record) => publicTranslation(videoId, record));
+}
+
+const TRANSLATION_FILES = {
+  audio: { ext: "mp3", type: "audio/mpeg" },
+  video: { ext: "mp4", type: "video/mp4" },
+  text: { ext: "md", type: "text/markdown; charset=utf-8" },
+};
+
+export async function translationFile(slug, videoId, key, kind) {
+  const spec = TRANSLATION_FILES[kind];
+  if (!spec) return null;
+  const file = safeJoin(translationDir(slug, videoId), `${assertLanguageKey(key)}.${spec.ext}`);
+  try {
+    const info = await stat(file);
+    return { file, size: info.size, type: spec.type };
+  } catch {
+    return null;
+  }
+}
+
 export async function deleteVideo(videoId) {
   const file = await findVideoFile(videoId);
   if (!file) return false;
@@ -433,6 +505,7 @@ export async function deleteVideo(videoId) {
   await rm(file);
   if (video?.channelSlug) {
     await rm(instagramDir(video.channelSlug, video.videoId), { recursive: true, force: true });
+    await rm(translationDir(video.channelSlug, video.videoId), { recursive: true, force: true });
   }
   return true;
 }

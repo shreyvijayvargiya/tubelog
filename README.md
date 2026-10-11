@@ -6,6 +6,12 @@ Turn YouTube into your local Markdown learning library.
 
 [Watch the explainer on YouTube](https://www.youtube.com/watch?v=S-4vWLyG5gw)
 
+### Demo video
+
+[![Watch the TubeLog demo video](dashboard/public/screenshots/dashboard.png)](https://y2lnnve28i.ufs.sh/f/7zDtt25EzTCvac4i0iv2ixnmrqEzeYpNZ0bcHF5tvGLQOVCd)
+
+[Watch the demo video](https://y2lnnve28i.ufs.sh/f/7zDtt25EzTCvac4i0iv2ixnmrqEzeYpNZ0bcHF5tvGLQOVCd)
+
 Fetch channels. Archive transcripts. Generate AI blogs. Browse everything in a local dashboard.
 
 TubeLog is a local YouTube archive, a Markdown knowledge base, and an AI study writer. The video is the source. The transcript is the raw knowledge. The blog is the lesson. The filesystem is the database.
@@ -38,6 +44,7 @@ Nothing is stored in a hosted database. API keys stay in `.env` and are never wr
 - Run the same sync again without duplicating files
 - Generate an educational blog with OpenRouter only when you pass `--ai` or `generateBlog: true`
 - Turn a transcript into an Instagram carousel with a theme, then render the slide images
+- Translate a transcript into another language, speak it with AI, and dub a local video with ffmpeg
 - Search the local library
 - Browse channels, transcripts, and blogs in a Vite + React dashboard
 - Start from 100 built-in channels across Tech, Programming, Coding, AI, SAAS, and News
@@ -87,7 +94,7 @@ Every archived video, across channels.
 
 ### Video
 
-A row opens a side panel. The YouTube video plays in the panel, with the overview, transcript, and AI blog in tabs.
+A row opens a side panel. The YouTube video plays in the panel, with the overview, transcript, AI blog, IG posts, and translation in tabs.
 
 ![Video details](dashboard/public/screenshots/video.png)
 
@@ -152,6 +159,8 @@ npm run dev
 ```
 
 Open http://localhost:3000.
+
+Translation and dubbing also need [ffmpeg](https://ffmpeg.org/download.html) on your PATH. Everything else works without it.
 
 The dev dashboard is Vite on port 3000. It proxies `/api` to the Hono server on port 8787.
 
@@ -240,6 +249,7 @@ Each route also has an npm script. These call the API in-process, so the dev ser
 | `npm run api:sync -- https://youtube.com/@fireship --ai` | `POST /api/youtube/sync` |
 | `npm run api:ai:blog -- No-JPdFvYWU --style tutorial` | `POST /api/ai/blog` |
 | `npm run api:ai:instagram -- No-JPdFvYWU --theme hook` | `POST /api/ai/instagram` |
+| `npm run api:ai:translate -- No-JPdFvYWU --language Spanish` | `POST /api/ai/translate` |
 | `npm run api:regenerate -- No-JPdFvYWU` | `POST /api/videos/:id/regenerate` |
 | `npm run api:delete -- No-JPdFvYWU` | `DELETE /api/videos/:id` |
 
@@ -548,6 +558,40 @@ curl -X POST http://localhost:3000/api/ai/instagram \
 
 `GET /api/videos/:id` includes the carousel. Each slide image is `GET /api/videos/:id/instagram/:index`.
 
+### `POST /api/ai/translate`
+
+Takes a video, translates its saved transcript into another language, speaks the translation with an OpenRouter audio model, and saves the audio next to the transcript. If a local copy of the video exists, ffmpeg removes its original audio and adds the new audio, so you get the same video in the new language.
+
+Request:
+
+```json
+{
+  "video": "No-JPdFvYWU",
+  "language": "Spanish",
+  "voice": "alloy",
+  "replaceAudio": true,
+  "videoUrl": "https://example.com/No-JPdFvYWU.mp4"
+}
+```
+
+- `video` and `language` are required. Use the language's English name.
+- `voice` is one of the voices in `tubelog.config.js` (`translation.voices`).
+- `model` translates the text. `ttsModel` speaks it. Set a default speech model with `OPENROUTER_TTS_MODEL`. It must support audio output.
+- `replaceAudio` defaults to `true`. Set it to `false` for audio only.
+- `videoUrl` is optional. TubeLog first looks for `videos/<channel>/<video-id>.mp4` (`.mkv`, `.webm` and `.mov` also work). If none exists, a public direct file URL is downloaded to that path. Private and local addresses are refused.
+
+The new audio is fitted to the video. Shorter audio is padded with silence. Longer audio is sped up, up to 2x. The original video file is never changed. The dubbed copy is saved separately.
+
+```bash
+curl -X POST http://localhost:3000/api/ai/translate \
+  -H "Content-Type: application/json" \
+  -d '{"video":"No-JPdFvYWU","language":"Spanish"}'
+```
+
+Only the first `translation.maxChars` characters of a transcript are translated (default 15000). The response says when it was trimmed. This endpoint spends OpenRouter credits for speech and can take a few minutes on long videos.
+
+`GET /api/videos/:id` includes `translations`. Files are served by `GET /api/videos/:id/translations/:language/audio`, `.../video` and `.../text`, with range support for seeking. `GET /api/videos/:id/translations` lists them.
+
 ### `POST /api/videos/:id/regenerate`
 
 Same options as `/api/ai/blog`. Always writes a new blog over the existing one.
@@ -628,6 +672,30 @@ Run it again to replace that carousel. Deleting the video removes the images too
 npm run api:ai:instagram -- No-JPdFvYWU --theme lesson
 ```
 
+## Translation and dubbing
+
+Open a saved video and choose **Translation**, next to **IG Posts**. Pick a language and a voice, then **Create translation**.
+
+1. An OpenRouter text model translates the transcript.
+2. An OpenRouter audio model speaks the translation. The audio is saved as an MP3.
+3. If a local video file exists, ffmpeg drops its original audio and muxes the new audio in. The dubbed video is saved as a separate MP4.
+
+The player for each language appears in the tab. Files are saved beside the transcript:
+
+```text
+videos/<channel>/translations/<video-id>/
+  spanish.md
+  spanish.mp3
+  spanish.mp4     only when a local video file was used
+  spanish.json
+```
+
+Deleting the video removes its translations too. Speech uses OpenRouter credits. TubeLog does not download videos from YouTube. To get a dubbed video, put `<video-id>.mp4` in the channel folder or pass `videoUrl`.
+
+```bash
+npm run api:ai:translate -- No-JPdFvYWU --language Spanish
+```
+
 ## Filesystem
 
 ```text
@@ -640,6 +708,10 @@ videos/
       No-JPdFvYWU/
         carousel.json
         1.png
+    translations/
+      No-JPdFvYWU/
+        spanish.mp3
+        spanish.md
 ```
 
 `channel.json` holds the channel id, name, handle, URL, description, and thumbnail.

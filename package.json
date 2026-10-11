@@ -31,6 +31,7 @@
     "api:sync": "node src/api-cli.js sync",
     "api:ai:blog": "node src/api-cli.js ai-blog",
     "api:ai:instagram": "node src/api-cli.js ai-instagram",
+    "api:ai:translate": "node src/api-cli.js ai-translate",
     "api:regenerate": "node src/api-cli.js regenerate",
     "api:delete": "node src/api-cli.js delete-video"
   },

@@ -9,6 +9,8 @@ import { Checkbox } from "../components/ui/dialog.jsx";
 import { api, emitLibraryChange, onLibraryChange } from "../lib/api.js";
 import { useConfig } from "../lib/useConfig.js";
 
+const DEMO_VIDEO_URL = "https://y2lnnve28i.ufs.sh/f/7zDtt25EzTCvac4i0iv2ixnmrqEzeYpNZ0bcHF5tvGLQOVCd";
+
 export function DashboardPage() {
   const [videos, setVideos] = useState(null);
   const [channels, setChannels] = useState(null);
@@ -47,7 +49,10 @@ export function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      <Onboarding />
+      <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)]">
+        <Onboarding />
+        <DemoVideo />
+      </div>
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
       {empty ? (
         <EmptyLibrary defaultAi={Boolean(config?.ai?.enabled)} />
@@ -78,6 +83,29 @@ export function DashboardPage() {
   );
 }
 
+function DemoVideo() {
+  return (
+    <Card className="flex flex-col overflow-hidden">
+      <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3">
+        <div>
+          <h2 className="text-sm font-medium">See TubeLog in action</h2>
+          <p className="text-sm text-muted-foreground">A short demo of scraping, transcripts, AI blogs, and IG posts.</p>
+        </div>
+        <Button variant="outline" size="sm" asChild>
+          <a href={DEMO_VIDEO_URL} target="_blank" rel="noreferrer">
+            Open video
+          </a>
+        </Button>
+      </div>
+      <video controls preload="metadata" className="aspect-video w-full flex-1 bg-black object-contain" src={DEMO_VIDEO_URL}>
+        <a href={DEMO_VIDEO_URL} target="_blank" rel="noreferrer">
+          Watch the demo video
+        </a>
+      </video>
+    </Card>
+  );
+}
+
 const STEPS = [
   {
     icon: Library,
@@ -98,7 +126,7 @@ const STEPS = [
 
 function Onboarding() {
   return (
-    <div className="grid gap-3 md:grid-cols-3">
+    <div className="grid gap-3">
       {STEPS.map((step, index) => {
         const Icon = step.icon;
         return (

@@ -1,9 +1,12 @@
 import "./env.js";
+import { createReadStream } from "node:fs";
+import { Readable } from "node:stream";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { blogOptions } from "./ai.js";
 import { generateInstagram } from "./instagram.js";
 import { archiveVideo, generateVideoBlog, syncChannel } from "./sync.js";
+import { generateTranslation } from "./translate.js";
 import {
   deleteVideo,
   detail,
@@ -12,11 +15,13 @@ import {
   listChannels,
   listVideos,
   publicInstagram,
+  publicTranslations,
   readInstagram,
   readInstagramSlide,
   readVideo,
   searchVideos,
   summarize,
+  translationFile,
 } from "./storage.js";
 import { fail, loadConfig, openRouterConfigured, plainExcerpt } from "./utils.js";
 import { fetchChannel, publicChannel, resolveVideo } from "./youtube.js";
@@ -73,6 +78,12 @@ app.get("/api/config", (c) => {
         label: theme.label,
         hook: theme.hook,
       })),
+    },
+    translation: {
+      voice: config.translation?.voice || "",
+      voices: config.translation?.voices || [],
+      languages: config.translation?.languages || [],
+      ttsModel: process.env.OPENROUTER_TTS_MODEL?.trim() || config.translation?.ttsModel || "",
     },
     sync: {
       maxVideos: config.sync.maxVideos,
@@ -160,6 +171,35 @@ app.get("/api/videos/:id/instagram", async (c) => {
   return c.json({ videoId: video.videoId, instagram: publicInstagram(video.videoId, record) });
 });
 
+app.get("/api/videos/:id/translations", async (c) => {
+  const video = await readVideo(c.req.param("id"));
+  if (!video) return c.json({ error: "Video not found" }, 404);
+  return c.json({ videoId: video.videoId, translations: await publicTranslations(video.channelSlug, video.videoId) });
+});
+
+app.get("/api/videos/:id/translations/:lang/:kind", async (c) => {
+  const video = await readVideo(c.req.param("id"));
+  if (!video) return c.json({ error: "Video not found" }, 404);
+  const found = await translationFile(video.channelSlug, video.videoId, c.req.param("lang"), c.req.param("kind"));
+  if (!found) return c.json({ error: "Translation file not found" }, 404);
+  const headers = { "Content-Type": found.type, "Accept-Ranges": "bytes", "Cache-Control": "private, max-age=300" };
+  const range = /^bytes=(\d*)-(\d*)$/.exec(c.req.header("range") || "");
+  if (range && (range[1] || range[2])) {
+    let start = range[1] ? Number(range[1]) : Math.max(0, found.size - Number(range[2]));
+    let end = range[1] && range[2] ? Number(range[2]) : found.size - 1;
+    end = Math.min(end, found.size - 1);
+    if (start > end || start >= found.size) {
+      return c.body(null, 416, { ...headers, "Content-Range": `bytes */${found.size}` });
+    }
+    return c.body(Readable.toWeb(createReadStream(found.file, { start, end })), 206, {
+      ...headers,
+      "Content-Range": `bytes ${start}-${end}/${found.size}`,
+      "Content-Length": String(end - start + 1),
+    });
+  }
+  return c.body(Readable.toWeb(createReadStream(found.file)), 200, { ...headers, "Content-Length": String(found.size) });
+});
+
 app.get("/api/videos/:id", async (c) => {
   const video = await readVideo(c.req.param("id"));
   if (!video) return c.json({ error: "Video not found" }, 404);
@@ -168,6 +208,7 @@ app.get("/api/videos/:id", async (c) => {
     video: {
       ...detail(video, { updatedAt: video.updatedAt }),
       instagram: publicInstagram(video.videoId, record),
+      translations: await publicTranslations(video.channelSlug, video.videoId),
     },
   });
 });
@@ -286,6 +327,35 @@ app.post("/api/ai/instagram", async (c) => {
     channel: video.channel,
     channelSlug: video.channelSlug,
     instagram: publicInstagram(video.videoId, saved),
+  });
+});
+
+app.post("/api/ai/translate", async (c) => {
+  const body = await readJson(c);
+  if (!body.video) throw fail("video is required", 400);
+  const { id } = resolveVideo(body.video);
+  let video = await readVideo(id);
+  if (!video || !video.transcriptAvailable) {
+    video = await archiveVideo(id, { generateBlog: false });
+  }
+  if (!video.transcriptAvailable) {
+    throw fail(video.transcriptError || "Transcript unavailable, so it cannot be translated", 422);
+  }
+  const translation = await generateTranslation(video, {
+    language: body.language,
+    voice: body.voice,
+    model: body.model,
+    ttsModel: body.ttsModel,
+    replaceAudio: body.replaceAudio,
+    videoUrl: body.videoUrl,
+  });
+  return c.json({
+    videoId: video.videoId,
+    title: video.title,
+    url: video.url,
+    channel: video.channel,
+    channelSlug: video.channelSlug,
+    translation,
   });
 });
 
