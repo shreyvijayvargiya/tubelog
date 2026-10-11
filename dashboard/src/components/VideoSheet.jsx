@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { api, onLibraryChange } from "../lib/api.js";
 import { copyText, formatDuration, formatPublished, proseToMarkdown, transcriptToMarkdown } from "../lib/utils.js";
 import { MarkdownView } from "./MarkdownView.jsx";
+import { TranslationPanel } from "./TranslationPanel.jsx";
 import { Badge, Button, Separator, Skeleton } from "./ui/button.jsx";
 import { DialogTitle, Sheet, SheetContent } from "./ui/dialog.jsx";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs.jsx";
@@ -14,6 +15,7 @@ export function VideoSheet({ videoId, open, onOpenChange, tab = "overview", onTa
   const [loading, setLoading] = useState(false);
   const blogRef = useRef("");
   const igRef = useRef("");
+  const translationRef = useRef("");
   const onTabChangeRef = useRef(onTabChange);
   onTabChangeRef.current = onTabChange;
 
@@ -22,6 +24,7 @@ export function VideoSheet({ videoId, open, onOpenChange, tab = "overview", onTa
     let active = true;
     blogRef.current = "";
     igRef.current = "";
+    translationRef.current = "";
     setVideo(null);
     setLoading(true);
     setError("");
@@ -33,7 +36,10 @@ export function VideoSheet({ videoId, open, onOpenChange, tab = "overview", onTa
           const nextBlog = data.video?.blog || "";
           const nextIg = data.video?.instagram?.generatedAt || "";
           if (quiet && nextBlog && nextBlog !== blogRef.current) onTabChangeRef.current?.("blog");
+          const nextTranslation = data.video?.translations?.[0]?.generatedAt || "";
           if (quiet && nextIg && nextIg !== igRef.current) onTabChangeRef.current?.("instagram");
+          if (quiet && nextTranslation && nextTranslation !== translationRef.current) onTabChangeRef.current?.("translation");
+          translationRef.current = nextTranslation;
           blogRef.current = nextBlog;
           igRef.current = nextIg;
           setVideo(data.video);
@@ -130,6 +136,7 @@ export function VideoSheet({ videoId, open, onOpenChange, tab = "overview", onTa
                 <TabsTrigger value="transcript">Transcript</TabsTrigger>
                 <TabsTrigger value="blog">AI Blog</TabsTrigger>
                 <TabsTrigger value="instagram">IG Posts</TabsTrigger>
+                <TabsTrigger value="translation">Translation</TabsTrigger>
               </TabsList>
               <TabsContent value="overview" className="space-y-4">
                 {video.description ? (
@@ -221,6 +228,9 @@ export function VideoSheet({ videoId, open, onOpenChange, tab = "overview", onTa
                     </Button>
                   </div>
                 )}
+              </TabsContent>
+              <TabsContent value="translation">
+                <TranslationPanel video={video} />
               </TabsContent>
             </Tabs>
           ) : null}

@@ -21,7 +21,7 @@ function positional() {
   const skip = new Set();
   for (let index = 0; index < rest.length; index += 1) {
     const arg = rest[index];
-    if (arg === "--limit" || arg === "--style" || arg === "--model" || arg === "--language" || arg === "--channel" || arg === "--theme" || arg === "--image-model") {
+    if (arg === "--limit" || arg === "--style" || arg === "--model" || arg === "--language" || arg === "--channel" || arg === "--theme" || arg === "--image-model" || arg === "--voice" || arg === "--video-url") {
       skip.add(index);
       if (rest[index + 1] && !rest[index + 1].startsWith("--")) skip.add(index + 1);
     }
@@ -72,6 +72,7 @@ Usage:
   npm run api:sync -- <channel-url> [--ai] [--force] [--limit N]
   npm run api:ai:blog -- <video-url-or-id> [--style name] [--model name]
   npm run api:ai:instagram -- <video-url-or-id> [--theme id] [--model name] [--image-model name]
+  npm run api:ai:translate -- <video-url-or-id> --language Spanish [--voice alloy] [--video-url https://…/video.mp4] [--no-dub]
   npm run api:regenerate -- <video-id> [--style name]
   npm run api:delete -- <video-id>
 
@@ -191,6 +192,20 @@ const routes = {
     if (theme) body.theme = theme;
     if (imageModel) body.imageModel = imageModel;
     return call("POST", "/api/ai/instagram", body);
+  },
+  "ai-translate"() {
+    const video = required(positional()[0], "video url or id");
+    const language = video ? required(option("--language"), "--language") : "";
+    if (!video || !language) return undefined;
+    const body = { video, language };
+    const model = option("--model");
+    const voice = option("--voice");
+    const videoUrl = option("--video-url");
+    if (model) body.model = model;
+    if (voice) body.voice = voice;
+    if (videoUrl) body.videoUrl = videoUrl;
+    if (flag("--no-dub")) body.replaceAudio = false;
+    return call("POST", "/api/ai/translate", body);
   },
   regenerate() {
     const id = required(positional()[0], "video id");
