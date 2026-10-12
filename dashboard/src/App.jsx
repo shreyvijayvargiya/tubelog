@@ -4,6 +4,7 @@ import { AppShell } from "./components/layout/AppShell.jsx";
 import { TooltipProvider } from "./components/ui/menu.jsx";
 import { useTheme } from "./lib/theme.jsx";
 import { BlogsPage } from "./pages/Blogs.jsx";
+import { ChangelogPage } from "./pages/Changelog.jsx";
 import { ChannelPage } from "./pages/Channel.jsx";
 import { ChannelsPage } from "./pages/Channels.jsx";
 import { DashboardPage } from "./pages/Dashboard.jsx";
@@ -26,6 +27,7 @@ export function App() {
             <Route path="/channels" element={<ChannelsPage />} />
             <Route path="/channels/:slug" element={<ChannelPage />} />
             <Route path="/blogs" element={<BlogsPage />} />
+            <Route path="/changelog" element={<ChangelogPage />} />
             <Route path="/settings" element={<SettingsPage />} />
           </Route>
         </Routes>

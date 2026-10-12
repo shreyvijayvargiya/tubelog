@@ -104,6 +104,10 @@ Lessons written from transcripts. Open one to read it, regenerate it, or jump ba
 
 ![Blogs](dashboard/public/screenshots/blogs.png)
 
+### Changelog
+
+A static list of release notes, newest first. Each entry has a date, a title, one line, and a video. Edit `dashboard/src/data/changelog.js` to add one. A video can be a file in `dashboard/public/changelog/` or a direct URL.
+
 ### Settings
 
 Public config only. The OpenRouter key stays in `.env` and is never written into Markdown.
