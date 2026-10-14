@@ -216,3 +216,8 @@
   text-align: left;
   vertical-align: top;
 }
+
+/* keep identifiers such as env var names on one line in the first table column */
+.blog-body td:first-child code {
+  white-space: nowrap;
+}

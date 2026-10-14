@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
-import { BookOpen, Check, ChevronsUpDown, Compass, Lightbulb, Plus, Github, LayoutDashboard, Library, Megaphone, Menu, Monitor, Moon, PanelLeftClose, PanelLeftOpen, Settings, Star, Sun, Tv, Youtube } from "lucide-react";
+import { BookOpen, Check, ChevronsUpDown, Compass, FileText, Lightbulb, Plus, Github, LayoutDashboard, Library, Megaphone, Menu, Monitor, Moon, PanelLeftClose, PanelLeftOpen, Settings, Star, Sun, Tv, Youtube } from "lucide-react";
 import { api, onLibraryChange } from "../../lib/api.js";
 import { useActiveChannel } from "../../lib/activeChannel.jsx";
 import { useConfig } from "../../lib/useConfig.js";
@@ -17,6 +17,7 @@ const NAV = [
   { to: "/videos", label: "Videos", icon: Youtube },
   { to: "/blogs", label: "Blogs", icon: BookOpen },
   { to: "/ideas", label: "Ideas", icon: Lightbulb },
+  { to: "/docs", label: "Docs", icon: FileText },
   { to: "/changelog", label: "Changelog", icon: Megaphone },
   { to: "/settings", label: "Settings", icon: Settings },
 ];
