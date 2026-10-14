@@ -2,6 +2,13 @@
 // `video` can be a file under dashboard/public or any direct video URL.
 export const CHANGELOG = [
   {
+    date: "2026-10-14",
+    title: "Video ideas for your YouTube channel",
+    description:
+      "Add your channel and an agent researches what is trending to suggest new videos, then writes the script and assets on request.",
+    video: "/changelog/video-ideas-for-your-channel.mp4",
+  },
+  {
     date: "2026-10-12",
     title: "IG posts and multi-language video",
     description:
