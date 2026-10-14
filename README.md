@@ -44,6 +44,7 @@ Nothing is stored in a hosted database. API keys stay in `.env` and are never wr
 - Run the same sync again without duplicating files
 - Generate an educational blog with OpenRouter only when you pass `--ai` or `generateBlog: true`
 - Turn a transcript into an Instagram carousel with a theme, then render the slide images
+- Add your own channel and get new video ideas from your videos plus parallel research on what is trending
 - Translate a transcript into another language, speak it with AI, and dub a local video with ffmpeg
 - Search the local library
 - Browse channels, transcripts, and blogs in a Vite + React dashboard
@@ -254,6 +255,7 @@ Each route also has an npm script. These call the API in-process, so the dev ser
 | `npm run api:ai:blog -- No-JPdFvYWU --style tutorial` | `POST /api/ai/blog` |
 | `npm run api:ai:instagram -- No-JPdFvYWU --theme hook` | `POST /api/ai/instagram` |
 | `npm run api:ai:translate -- No-JPdFvYWU --language Spanish` | `POST /api/ai/translate` |
+| `npm run api:ai:ideas -- yourchannel` | `POST /api/ai/ideas` |
 | `npm run api:regenerate -- No-JPdFvYWU` | `POST /api/videos/:id/regenerate` |
 | `npm run api:delete -- No-JPdFvYWU` | `DELETE /api/videos/:id` |
 
@@ -596,6 +598,53 @@ Only the first `translation.maxChars` characters of a transcript are translated 
 
 `GET /api/videos/:id` includes `translations`. Files are served by `GET /api/videos/:id/translations/:language/audio`, `.../video` and `.../text`, with range support for seeking. `GET /api/videos/:id/translations` lists them.
 
+### `POST /api/my-channels`
+
+Marks a channel as yours, saves the description you wrote, imports its latest videos and transcripts, and builds the channel memory the ideas agent reads.
+
+```json
+{
+  "url": "https://www.youtube.com/@yourchannel",
+  "description": "I teach indie developers to build SaaS with Next.js.",
+  "audience": "Solo founders",
+  "goals": "Grow subscribers",
+  "maxVideos": 20
+}
+```
+
+Use `"channel": "<slug>"` instead of `url` to pick a channel already in your library. `"sync": false` skips the video import. `GET /api/my-channels` lists your channels. `POST /api/my-channels/:slug/memory` rebuilds the memory (`{"sync": true}` imports new videos first). `DELETE /api/my-channels/:slug` removes the flag and keeps the library.
+
+### `POST /api/ai/ideas`
+
+Finds new video ideas for one of your channels. The agent only researches and suggests. It never writes a script.
+
+```bash
+curl -X POST http://localhost:3000/api/ai/ideas \
+  -H "Content-Type: application/json" \
+  -d '{"channel":"yourchannel","focus":"voice agents","count":8}'
+```
+
+Every run injects two things into the model's context:
+
+1. **Your channel memory:** a short digest of each of your videos, always built from the transcript, plus a summary of your niche, audience and themes. Raw transcripts are never sent on every run.
+2. **Fresh research:** Google News, Hacker News, Google Trends and a YouTube search, all fetched at the same time, then the best direct links scraped in parallel. Add `TAVILY_API_KEY` or `BRAVE_API_KEY` for web search. A source that fails never fails the run.
+
+The model also sees the titles of ideas it already gave you, and near-duplicates are dropped, so each run is new. It uses FREE OpenRouter models by default and falls back to the next free model on a rate limit. `focus`, `count` (3 to 12), `model` and `sources` are optional.
+
+Each idea has a title, hook, angle, why now, audience, format, keywords, title options, a priority from 1 to 5, and the sources it was based on.
+
+`GET /api/channels/:slug/ideas?page=1` lists ideas. `GET` and `PATCH /api/channels/:slug/ideas/:ideaId` read an idea and set its status to `new`, `saved`, `dismissed` or `scripted`.
+
+### `POST /api/channels/:slug/ideas/:ideaId/produce`
+
+Writes the production material for one idea, all at once: a script, thumbnail concepts and a shot list, and a background music brief.
+
+```json
+{ "script": true, "assets": true, "images": false, "music": true, "minutes": 8 }
+```
+
+`images: true` also draws two thumbnails with an OpenRouter image model and uses credits. The music is a brief (mood, tempo, instruments, search terms and royalty-free library links). TubeLog does not generate audio tracks.
+
 ### `POST /api/videos/:id/regenerate`
 
 Same options as `/api/ai/blog`. Always writes a new blog over the existing one.
@@ -698,6 +747,33 @@ Deleting the video removes its translations too. Speech uses OpenRouter credits.
 
 ```bash
 npm run api:ai:translate -- No-JPdFvYWU --language Spanish
+```
+
+## Ideas for your channel
+
+Add your own channel and TubeLog suggests what to make next.
+
+1. Open the channel menu at the top of the sidebar and choose **Add my channel**. Paste your URL (or pick a saved channel) and describe your channel. TubeLog imports your latest videos and transcripts and builds a memory of what you cover. You can add more than one channel and switch between them.
+2. Open **Ideas** and choose **Find new ideas**. An optional focus steers the run.
+3. Open an idea to see the angle, why it is timely, title options, and its sources. **Generate script & assets** writes a script, thumbnail concepts, a shot list and a music brief.
+
+Everything is local and plain files:
+
+```text
+videos/<channel>/
+  memory.json            digests of your videos and a channel summary
+  ideas/
+    ideas.json           the newest 5 runs, plus ideas you saved or scripted
+    page-0001.json       older runs, 5 runs per file
+    <idea-id>/thumb-1.png
+```
+
+`memory.json` and `ideas/` are git-ignored, so your own channel never lands in a commit. Each run adds a page of ideas, and runs beyond the newest 5 move into numbered page files that the table pages through. Saved and scripted ideas stay on the first page.
+
+It is built to cost close to nothing: free OpenRouter models, free research sources, and short digests instead of full transcripts. Free models are rate limited and vary in quality. TubeLog does not read YouTube Analytics. The YouTube search and Google Trends sources use public pages and can break. If a source is down the run still works from your own videos.
+
+```bash
+npm run api:ai:ideas -- yourchannel --focus "voice agents"
 ```
 
 ## Filesystem

@@ -94,6 +94,13 @@ export default {
     maxChars: 15000,
     maxVideoMB: 1024,
   },
+  ideas: {
+    count: 8,
+    runsPerPage: 5,
+    memoryVideos: 30,
+    queries: 3,
+    geo: "US",
+  },
   sync: {
     maxVideos: 20,
     maxPages: 12,

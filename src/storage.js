@@ -203,6 +203,8 @@ async function writeChannel(channel) {
     thumbnail: channel.thumbnail || "",
     lastSyncedAt: channel.lastSyncedAt || null,
     updatedAt: channel.updatedAt || new Date().toISOString(),
+    ...(channel.mine ? { mine: true } : {}),
+    ...(channel.profile && typeof channel.profile === "object" ? { profile: channel.profile } : {}),
   };
   await writeFile(channelPath(slug), `${JSON.stringify(record, null, 2)}\n`);
   return record;
@@ -246,6 +248,21 @@ export async function ensureChannel(input) {
     lastSyncedAt: existing?.lastSyncedAt || null,
     updatedAt: new Date().toISOString(),
   });
+}
+
+// Flags a library channel as one of the user's own channels, or updates its profile.
+export async function updateChannelMeta(slug, patch = {}) {
+  const channel = await readChannel(slug);
+  if (!channel) return null;
+  const next = { ...channel, updatedAt: new Date().toISOString() };
+  if ("mine" in patch) next.mine = Boolean(patch.mine);
+  if (patch.profile) next.profile = { ...(channel.profile || {}), ...patch.profile };
+  if (!next.mine) delete next.mine;
+  return writeChannel(next);
+}
+
+export function channelDirectory(slug) {
+  return safeJoin(videosDirectory(), assertSlug(slug));
 }
 
 export async function touchChannel(slug) {

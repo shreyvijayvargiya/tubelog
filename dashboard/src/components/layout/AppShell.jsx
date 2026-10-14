@@ -1,13 +1,14 @@
 import { useEffect, useState } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
-import { BookOpen, Compass, Github, LayoutDashboard, Library, Megaphone, Menu, Monitor, Moon, PanelLeftClose, PanelLeftOpen, Settings, Star, Sun, Tv, Youtube } from "lucide-react";
+import { BookOpen, Check, ChevronsUpDown, Compass, Lightbulb, Plus, Github, LayoutDashboard, Library, Megaphone, Menu, Monitor, Moon, PanelLeftClose, PanelLeftOpen, Settings, Star, Sun, Tv, Youtube } from "lucide-react";
 import { api, onLibraryChange } from "../../lib/api.js";
+import { useActiveChannel } from "../../lib/activeChannel.jsx";
 import { useConfig } from "../../lib/useConfig.js";
 import { cn } from "../../lib/utils.js";
 import { useTheme } from "../../lib/theme.jsx";
 import { Button, Separator } from "../ui/button.jsx";
 import { DialogTitle, Sheet, SheetContent } from "../ui/dialog.jsx";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../ui/menu.jsx";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "../ui/menu.jsx";
 
 const NAV = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard, end: true },
@@ -15,6 +16,7 @@ const NAV = [
   { to: "/channels", label: "Channels", icon: Tv },
   { to: "/videos", label: "Videos", icon: Youtube },
   { to: "/blogs", label: "Blogs", icon: BookOpen },
+  { to: "/ideas", label: "Ideas", icon: Lightbulb },
   { to: "/changelog", label: "Changelog", icon: Megaphone },
   { to: "/settings", label: "Settings", icon: Settings },
 ];
@@ -135,6 +137,38 @@ function ThemeMenu() {
   );
 }
 
+function ChannelSwitcher({ onNavigate }) {
+  const navigate = useNavigate();
+  const { channels, active, setActive } = useActiveChannel();
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button type="button" className="flex max-w-[9.5rem] items-center gap-1 text-xs text-muted-foreground hover:text-foreground" aria-label="Switch channel">
+          <span className="truncate">{active?.name || "Add your channel"}</span>
+          <ChevronsUpDown className="h-3 w-3 shrink-0" />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start">
+        {channels.map((channel) => (
+          <DropdownMenuItem key={channel.slug} onSelect={() => setActive(channel.slug)}>
+            <Check className={cn("h-4 w-4", active?.slug === channel.slug ? "opacity-100" : "opacity-0")} />
+            {channel.name}
+          </DropdownMenuItem>
+        ))}
+        {channels.length ? <DropdownMenuSeparator /> : null}
+        <DropdownMenuItem
+          onSelect={() => {
+            onNavigate?.();
+            navigate("/my-channels/new");
+          }}
+        >
+          <Plus className="h-4 w-4" /> Add my channel
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
 function Sidebar({ channels, onNavigate, collapsed = false, onToggle }) {
   return (
     <div className="flex h-full flex-col">
@@ -149,7 +183,7 @@ function Sidebar({ channels, onNavigate, collapsed = false, onToggle }) {
         {collapsed ? null : (
           <div className="min-w-0">
             <p className="text-sm font-semibold tracking-tight">TubeLog</p>
-            <p className="text-xs text-muted-foreground">Local library</p>
+            <ChannelSwitcher onNavigate={onNavigate} />
           </div>
         )}
       </div>

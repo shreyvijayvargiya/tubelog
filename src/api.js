@@ -1,5 +1,7 @@
 import "./env.js";
 import { createReadStream } from "node:fs";
+import { readFile } from "node:fs/promises";
+import path from "node:path";
 import { Readable } from "node:stream";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
@@ -7,6 +9,11 @@ import { blogOptions } from "./ai.js";
 import { generateInstagram } from "./instagram.js";
 import { archiveVideo, generateVideoBlog, syncChannel } from "./sync.js";
 import { generateTranslation } from "./translate.js";
+import { generateIdeas } from "./ideas.js";
+import { findIdea, ideasDir, readPage, updateIdea } from "./ideas-store.js";
+import { addMyChannel, getMyChannel, listMyChannels, rebuildMemory, removeMyChannel } from "./mychannels.js";
+import { ideaFileName, produceIdea } from "./produce.js";
+import { SOURCE_NAMES } from "./research.js";
 import {
   deleteVideo,
   detail,
@@ -85,11 +92,112 @@ app.get("/api/config", (c) => {
       languages: config.translation?.languages || [],
       ttsModel: process.env.OPENROUTER_TTS_MODEL?.trim() || config.translation?.ttsModel || "",
     },
+    ideas: {
+      count: config.ideas?.count || 8,
+      sources: SOURCE_NAMES,
+      tavily: Boolean(process.env.TAVILY_API_KEY?.trim()),
+      brave: Boolean(process.env.BRAVE_API_KEY?.trim()),
+    },
     sync: {
       maxVideos: config.sync.maxVideos,
       maxPages: config.sync.maxPages,
     },
   });
+});
+
+
+function publicIdea(slug, idea) {
+  return { ...idea, channelSlug: slug };
+}
+
+async function ownChannel(slug) {
+  const channel = await getMyChannel(slug);
+  if (!channel) throw fail("Not one of your channels", 404);
+  return channel;
+}
+
+app.get("/api/my-channels", async (c) => c.json({ channels: await listMyChannels() }));
+
+app.post("/api/my-channels", async (c) => {
+  const body = await readJson(c);
+  return c.json(
+    await addMyChannel({
+      url: body.url,
+      channel: body.channel,
+      description: body.description,
+      audience: body.audience,
+      goals: body.goals,
+      maxVideos: body.maxVideos,
+      sync: body.sync,
+      memory: body.memory,
+      model: body.model,
+    }),
+  );
+});
+
+app.post("/api/my-channels/:slug/memory", async (c) => {
+  const body = await readJson(c).catch(() => ({}));
+  return c.json(await rebuildMemory(c.req.param("slug"), body && typeof body === "object" ? body : {}));
+});
+
+app.delete("/api/my-channels/:slug", async (c) => c.json(await removeMyChannel(c.req.param("slug"))));
+
+app.post("/api/ai/ideas", async (c) => {
+  const body = await readJson(c);
+  const slug = body.channel;
+  if (!slug) throw fail("channel is required", 400);
+  await ownChannel(slug);
+  const result = await generateIdeas(slug, { focus: body.focus, count: body.count, model: body.model, sources: body.sources });
+  return c.json({ channelSlug: slug, run: result.run, ideas: result.ideas.map((idea) => publicIdea(slug, idea)) });
+});
+
+app.get("/api/channels/:slug/ideas", async (c) => {
+  const slug = c.req.param("slug");
+  await ownChannel(slug);
+  const page = await readPage(slug, c.req.query("page"));
+  return c.json({ channelSlug: slug, page: page.page, pages: page.pages, runs: page.runs, ideas: page.ideas.map((idea) => publicIdea(slug, idea)) });
+});
+
+app.get("/api/channels/:slug/ideas/:ideaId", async (c) => {
+  const slug = c.req.param("slug");
+  await ownChannel(slug);
+  const idea = await findIdea(slug, c.req.param("ideaId"));
+  if (!idea) return c.json({ error: "Idea not found" }, 404);
+  return c.json({ idea: publicIdea(slug, idea) });
+});
+
+app.patch("/api/channels/:slug/ideas/:ideaId", async (c) => {
+  const slug = c.req.param("slug");
+  await ownChannel(slug);
+  const body = await readJson(c);
+  const idea = await updateIdea(slug, c.req.param("ideaId"), { status: body.status });
+  if (!idea) return c.json({ error: "Idea not found" }, 404);
+  return c.json({ idea: publicIdea(slug, idea) });
+});
+
+app.post("/api/channels/:slug/ideas/:ideaId/produce", async (c) => {
+  const slug = c.req.param("slug");
+  await ownChannel(slug);
+  const body = await readJson(c).catch(() => ({}));
+  const idea = await findIdea(slug, c.req.param("ideaId"));
+  if (!idea) return c.json({ error: "Idea not found" }, 404);
+  const result = await produceIdea(slug, idea, body && typeof body === "object" ? body : {});
+  return c.json({ idea: publicIdea(slug, result.idea), errors: result.errors });
+});
+
+app.get("/api/channels/:slug/ideas/:ideaId/files/:name", async (c) => {
+  const slug = c.req.param("slug");
+  await ownChannel(slug);
+  const name = ideaFileName(c.req.param("name"));
+  const idea = await findIdea(slug, c.req.param("ideaId"));
+  if (!name || !idea) return c.json({ error: "File not found" }, 404);
+  try {
+    const body = await readFile(path.join(ideasDir(slug), idea.id, name));
+    const type = name.endsWith(".png") ? "image/png" : name.endsWith(".webp") ? "image/webp" : "image/jpeg";
+    return c.body(body, 200, { "Content-Type": type, "Cache-Control": "private, max-age=3600" });
+  } catch {
+    return c.json({ error: "File not found" }, 404);
+  }
 });
 
 app.get("/api/channels", async (c) => {

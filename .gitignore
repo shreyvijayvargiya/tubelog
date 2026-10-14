@@ -7,3 +7,7 @@ dashboard/dist/
 !.env.example
 *.log
 .DS_Store
+
+# personal channel memory and generated ideas stay local
+videos/*/memory.json
+videos/*/ideas/

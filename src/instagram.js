@@ -186,7 +186,7 @@ async function imageFromPayload(data) {
   return null;
 }
 
-async function drawImage(prompt, model) {
+export async function drawImage(prompt, model, aspect = "4:5") {
   const key = apiKey();
   let response;
   try {
@@ -198,7 +198,7 @@ async function drawImage(prompt, model) {
         model,
         prompt,
         n: 1,
-        aspect_ratio: "4:5",
+        aspect_ratio: aspect,
       }),
     });
   } catch (error) {

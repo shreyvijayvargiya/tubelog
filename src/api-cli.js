@@ -21,7 +21,7 @@ function positional() {
   const skip = new Set();
   for (let index = 0; index < rest.length; index += 1) {
     const arg = rest[index];
-    if (arg === "--limit" || arg === "--style" || arg === "--model" || arg === "--language" || arg === "--channel" || arg === "--theme" || arg === "--image-model" || arg === "--voice" || arg === "--video-url") {
+    if (arg === "--limit" || arg === "--style" || arg === "--model" || arg === "--language" || arg === "--channel" || arg === "--theme" || arg === "--image-model" || arg === "--voice" || arg === "--video-url" || arg === "--focus" || arg === "--count") {
       skip.add(index);
       if (rest[index + 1] && !rest[index + 1].startsWith("--")) skip.add(index + 1);
     }
@@ -72,6 +72,7 @@ Usage:
   npm run api:sync -- <channel-url> [--ai] [--force] [--limit N]
   npm run api:ai:blog -- <video-url-or-id> [--style name] [--model name]
   npm run api:ai:instagram -- <video-url-or-id> [--theme id] [--model name] [--image-model name]
+  npm run api:ai:ideas -- <my-channel-slug> [--focus topic] [--count 8]
   npm run api:ai:translate -- <video-url-or-id> --language Spanish [--voice alloy] [--video-url https://…/video.mp4] [--no-dub]
   npm run api:regenerate -- <video-id> [--style name]
   npm run api:delete -- <video-id>
@@ -206,6 +207,18 @@ const routes = {
     if (videoUrl) body.videoUrl = videoUrl;
     if (flag("--no-dub")) body.replaceAudio = false;
     return call("POST", "/api/ai/translate", body);
+  },
+  "ai-ideas"() {
+    const channel = required(positional()[0], "channel slug");
+    if (!channel) return undefined;
+    const body = { channel };
+    const focus = option("--focus");
+    const count = option("--count");
+    const model = option("--model");
+    if (focus) body.focus = focus;
+    if (count) body.count = Number(count);
+    if (model) body.model = model;
+    return call("POST", "/api/ai/ideas", body);
   },
   regenerate() {
     const id = required(positional()[0], "video id");

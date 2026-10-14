@@ -279,7 +279,7 @@ async function findLocalVideo(slug, videoId) {
   return "";
 }
 
-function privateAddress(address) {
+export function privateAddress(address) {
   if (net.isIPv6(address)) {
     const lower = address.toLowerCase();
     if (lower.startsWith("::ffff:")) return privateAddress(lower.slice(7));
@@ -289,7 +289,7 @@ function privateAddress(address) {
   return a === 0 || a === 10 || a === 127 || (a === 169 && b === 254) || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168) || a >= 224;
 }
 
-async function assertPublicUrl(raw) {
+export async function assertPublicUrl(raw) {
   let url;
   try {
     url = new URL(raw);
