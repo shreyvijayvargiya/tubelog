@@ -36,6 +36,7 @@ The code is on [GitHub](https://github.com/shreyvijayvargiya/tubelog) under the 
 - **Instagram posts.** Turn a transcript into a six-slide carousel with a caption, using a theme you choose.
 - **Translation and dubbing.** Translate a transcript, speak it in another language, and optionally replace the audio in a local copy of the video with ffmpeg.
 - **Ideas for your own channel.** Add your channel, and an agent suggests new videos using your own content plus fresh research on what is trending.
+- **Video Studio.** Describe a clip, optionally let an AI model improve the prompt, and generate it with an OpenRouter video model. Clips are saved on your machine.
 - **Discover.** Start from 100 built-in channels across Tech, Programming, Coding, AI, SaaS, and News.
 - **A local dashboard.** Browse channels, videos, transcripts, blogs, and ideas. Search the whole library.
 - **A CLI and an HTTP API.** The same core powers all three, so they never drift apart.
@@ -91,6 +92,7 @@ For production, run `npm run build && npm start` and open `http://localhost:3000
 | **Videos** | Every archived video across channels. Click a row to open the side panel. |
 | **Blogs** | Lessons written from transcripts. Read, regenerate, or jump back to the video. |
 | **Ideas** | New video ideas for your own channel. See [Ideas for your channel](#ideas-for-your-channel). |
+| **Studio** | Generate short videos from a prompt. See [Video Studio](#video-studio). |
 | **Changelog** | Release notes with a video for each update. |
 | **Docs** | This page. |
 | **Settings** | Public configuration only. Your API key is never shown. |
@@ -173,6 +175,8 @@ videos/
     translations/No-JPdFvYWU/  spanish.mp3, spanish.md, spanish.mp4, spanish.json
     memory.json                your channel memory (your own channels only)
     ideas/                     ideas.json, page-0001.json ... (your own channels only)
+generated/
+  vid-xxxxxxxx/                video.mp4 and meta.json from the Studio
 ```
 
 Plain files mean the library works with everything: your editor, `grep`, a static site generator, or an LLM that you point at the folder.
@@ -239,6 +243,21 @@ It is built to cost close to nothing: free OpenRouter models, free research sour
 
 ---
 
+## Video Studio
+
+Open **Studio** to generate a short video from a prompt. Tubelog uses OpenRouter's video generation, so it needs only the `OPENROUTER_API_KEY` you already have.
+
+1. Write a detailed prompt: the subject, the setting, how the camera moves, the light and mood, and what happens from start to end. Clips are short, so describe one scene.
+2. Choose a model, a duration, a resolution, and an aspect ratio. The choices come from what each model says it supports, and the price is shown before you confirm.
+3. Optionally tick **Improve my prompt with an AI model first**. A text model, which can be Opus or any Claude model, rewrites your idea as a detailed video prompt. You can read the improved prompt on the finished video.
+4. Choose **Generate video**. Video models take a few minutes, so the page shows the job's progress. When it is ready, the video appears in your gallery with its prompt, and you can play, download, reuse the prompt, or delete it.
+
+Generating a video is asynchronous on OpenRouter: Tubelog submits a job, checks it until it finishes, then downloads the file. Videos are saved in `generated/<id>/video.mp4` with a `meta.json` that records the prompt, model, and settings. The `generated/` folder is git-ignored.
+
+Video generation is not free. It is billed per second by the model's provider through your OpenRouter account. Clips are capped at 12 seconds by default (`studio.maxSeconds`) so a typo cannot create a large bill. The text models that write the video prompt are not the ones that make the video: Opus and other language models write the prompt, and a video model such as Veo makes the clip. If a clip contains realistic synthetic footage, check YouTube's current rules on disclosing altered or synthetic content before you publish it.
+
+---
+
 ## API reference
 
 All routes are under `/api`. Responses are JSON. Errors look like `{ "error": "message" }`.
@@ -297,6 +316,25 @@ curl -X POST http://localhost:3000/api/ai/translate \
 ```
 
 Blog options are `model`, `style` (`educational`, `tutorial`, `explainer`, `technical`, `beginner`), `language`, `includeTakeaways`, `includeOriginalVideo`, and `includeCodeExamples`. Translation takes `language`, `voice`, `replaceAudio`, and an optional `videoUrl`.
+
+### Studio (video generation)
+
+| Method | Route | What it does |
+| --- | --- | --- |
+| `GET` | `/api/studio/models` | Video models with their supported durations, resolutions, aspect ratios, and pricing |
+| `POST` | `/api/ai/video` | Generate a video. It waits until the clip is saved |
+| `GET` | `/api/studio/videos` | List generated videos, newest first |
+| `GET` | `/api/studio/videos/:id` | One video's details |
+| `GET` | `/api/studio/videos/:id/file` | Stream the MP4, with range support |
+| `DELETE` | `/api/studio/videos/:id` | Delete a video and its file |
+
+```bash
+curl -X POST http://localhost:3000/api/ai/video \
+  -H "Content-Type: application/json" \
+  -d '{"prompt":"A slow dolly shot through a rainy neon street at night, a lone cyclist crosses the frame, cinematic 35mm look.","model":"google/veo-3.1","duration":6,"resolution":"720p","aspectRatio":"16:9","refine":true}'
+```
+
+`prompt` is required (10 to 4000 characters). `refine: true` rewrites the prompt first, using `refineModel` or the default text model. `duration` cannot exceed `studio.maxSeconds`. The request can take several minutes.
 
 ### Your channels and ideas
 
@@ -368,6 +406,7 @@ Copy `.env.example` to `.env`. Keys stay in `.env` and are never written into Ma
 | `BRAVE_API_KEY` | No | Adds Brave web search to the ideas agent |
 | `PORT` | No | API port. `8787` in development, `3000` in production |
 | `TUBELOG_VIDEOS_DIR` | No | Where the library lives. Default `./videos` |
+| `TUBELOG_GENERATED_DIR` | No | Where Studio videos are saved. Default `./generated` |
 | `TUBELOG_GITHUB_URL` | No | The GitHub link in the dashboard |
 | `OPENROUTER_BASE_URL` | No | Advanced. Points the AI features at another OpenRouter-compatible endpoint |
 
@@ -376,6 +415,7 @@ Copy `.env.example` to `.env`. Keys stay in `.env` and are never written into Ma
 ```js
 sync: { maxVideos: 20, maxPages: 12, delayMs: 350 },
 ideas: { count: 8, runsPerPage: 5, memoryVideos: 30, queries: 3, geo: "US" },
+studio: { maxSeconds: 12, timeoutMinutes: 15, pollSeconds: 5, models: ["google/veo-3.1", "google/veo-3.1-lite"] },
 ```
 
 ---
@@ -411,6 +451,7 @@ Being honest about what Tubelog does not do:
 - **Rate limiting.** YouTube sometimes blocks automated requests with a 429 or a consent wall. Tubelog treats this as retryable rather than permanently missing, and it adds a short delay between requests. Cloud and data-center IP addresses are blocked more often, so running locally works best.
 - **20 videos per sync by default.** That is the `sync.maxVideos` setting. Run sync again to continue through the channel, since already archived videos are skipped.
 - **Shorts are skipped.**
+- **Video generation costs money.** Studio clips are billed by OpenRouter per second and are short, a few seconds each. Tubelog shows the price before you confirm and caps the clip length.
 - **Free models vary.** Free OpenRouter models are rate limited and the quality changes. Tubelog falls back to the next free model when one is busy.
 - **It is a local tool.** There are no accounts, billing, cloud storage, or scheduled sync in this version. Serverless hosts such as Vercel have no persistent disk, so a hosted version needs a storage layer. MCP and Claude integration, cloud storage, and scheduled sync are on the roadmap.
 - **Respect creators and platforms.** A transcript is someone else's work. Use it to learn, to summarize, and to write a new piece with your own analysis, and always credit and link the source. Follow YouTube's Terms of Service. This is general guidance, not legal advice, so check the creator's terms if you plan to republish at scale.
@@ -457,6 +498,8 @@ Copy this into your notes:
 **Where are the files stored?** On your machine, in `videos/<channel>/<video-id>.md`.
 
 **Which AI model does it use?** The default is the free model set in `tubelog.config.js`. You can change it with `OPENROUTER_MODEL`, per request with the `model` option, or in the dashboard.
+
+**Can I generate videos with Tubelog?** Yes, short clips in the Studio, through OpenRouter's video models. It is paid per second, and a language model such as Opus only helps write the prompt.
 
 **Does the ideas agent need my analytics?** No. It reads your own transcripts and public research. It does not use YouTube Analytics.
 

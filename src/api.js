@@ -10,6 +10,7 @@ import { generateInstagram } from "./instagram.js";
 import { archiveVideo, generateVideoBlog, syncChannel } from "./sync.js";
 import { generateTranslation } from "./translate.js";
 import { generateIdeas } from "./ideas.js";
+import { deleteGenerated, generatedFile, generateVideo, listGenerated, listVideoModels, publicVideo, readMeta } from "./studio.js";
 import { findIdea, ideasDir, readPage, updateIdea } from "./ideas-store.js";
 import { addMyChannel, getMyChannel, listMyChannels, rebuildMemory, removeMyChannel } from "./mychannels.js";
 import { ideaFileName, produceIdea } from "./produce.js";
@@ -63,6 +64,25 @@ function blogBody(body = {}) {
   });
 }
 
+// Streams a file with HTTP Range support so browsers can seek in audio and video.
+function streamFile(c, found) {
+  const headers = { "Content-Type": found.type, "Accept-Ranges": "bytes", "Cache-Control": "private, max-age=300" };
+  const range = /^bytes=(\d*)-(\d*)$/.exec(c.req.header("range") || "");
+  if (range && (range[1] || range[2])) {
+    const start = range[1] ? Number(range[1]) : Math.max(0, found.size - Number(range[2]));
+    const end = Math.min(range[1] && range[2] ? Number(range[2]) : found.size - 1, found.size - 1);
+    if (start > end || start >= found.size) {
+      return c.body(null, 416, { ...headers, "Content-Range": `bytes */${found.size}` });
+    }
+    return c.body(Readable.toWeb(createReadStream(found.file, { start, end })), 206, {
+      ...headers,
+      "Content-Range": `bytes ${start}-${end}/${found.size}`,
+      "Content-Length": String(end - start + 1),
+    });
+  }
+  return c.body(Readable.toWeb(createReadStream(found.file)), 200, { ...headers, "Content-Length": String(found.size) });
+}
+
 app.get("/api/health", (c) => c.json({ ok: true, service: "tubelog" }));
 
 app.get("/api/config", (c) => {
@@ -91,6 +111,10 @@ app.get("/api/config", (c) => {
       voices: config.translation?.voices || [],
       languages: config.translation?.languages || [],
       ttsModel: process.env.OPENROUTER_TTS_MODEL?.trim() || config.translation?.ttsModel || "",
+    },
+    studio: {
+      maxSeconds: config.studio?.maxSeconds || 12,
+      models: config.studio?.models || [],
     },
     ideas: {
       count: config.ideas?.count || 8,
@@ -200,6 +224,42 @@ app.get("/api/channels/:slug/ideas/:ideaId/files/:name", async (c) => {
   }
 });
 
+app.get("/api/studio/models", async (c) => c.json({ models: await listVideoModels({ force: c.req.query("refresh") === "1" }) }));
+
+app.post("/api/ai/video", async (c) => {
+  const body = await readJson(c);
+  const video = await generateVideo({
+    prompt: body.prompt,
+    model: body.model,
+    duration: body.duration,
+    resolution: body.resolution,
+    aspectRatio: body.aspectRatio,
+    refine: body.refine,
+    refineModel: body.refineModel,
+  });
+  return c.json({ video });
+});
+
+app.get("/api/studio/videos", async (c) => c.json({ videos: await listGenerated() }));
+
+app.get("/api/studio/videos/:id", async (c) => {
+  const meta = await readMeta(c.req.param("id"));
+  if (!meta) return c.json({ error: "Video not found" }, 404);
+  return c.json({ video: publicVideo(meta) });
+});
+
+app.get("/api/studio/videos/:id/file", async (c) => {
+  const found = await generatedFile(c.req.param("id"));
+  if (!found) return c.json({ error: "Video file not found" }, 404);
+  return streamFile(c, found);
+});
+
+app.delete("/api/studio/videos/:id", async (c) => {
+  const id = c.req.param("id");
+  if (!(await deleteGenerated(id))) return c.json({ error: "Video not found" }, 404);
+  return c.json({ deleted: true, id });
+});
+
 app.get("/api/channels", async (c) => {
   const channels = await listChannels();
   return c.json({ channels: channels.map(publicChannel) });
@@ -290,22 +350,7 @@ app.get("/api/videos/:id/translations/:lang/:kind", async (c) => {
   if (!video) return c.json({ error: "Video not found" }, 404);
   const found = await translationFile(video.channelSlug, video.videoId, c.req.param("lang"), c.req.param("kind"));
   if (!found) return c.json({ error: "Translation file not found" }, 404);
-  const headers = { "Content-Type": found.type, "Accept-Ranges": "bytes", "Cache-Control": "private, max-age=300" };
-  const range = /^bytes=(\d*)-(\d*)$/.exec(c.req.header("range") || "");
-  if (range && (range[1] || range[2])) {
-    let start = range[1] ? Number(range[1]) : Math.max(0, found.size - Number(range[2]));
-    let end = range[1] && range[2] ? Number(range[2]) : found.size - 1;
-    end = Math.min(end, found.size - 1);
-    if (start > end || start >= found.size) {
-      return c.body(null, 416, { ...headers, "Content-Range": `bytes */${found.size}` });
-    }
-    return c.body(Readable.toWeb(createReadStream(found.file, { start, end })), 206, {
-      ...headers,
-      "Content-Range": `bytes ${start}-${end}/${found.size}`,
-      "Content-Length": String(end - start + 1),
-    });
-  }
-  return c.body(Readable.toWeb(createReadStream(found.file)), 200, { ...headers, "Content-Length": String(found.size) });
+  return streamFile(c, found);
 });
 
 app.get("/api/videos/:id", async (c) => {

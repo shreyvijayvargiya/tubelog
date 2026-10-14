@@ -45,6 +45,7 @@ Nothing is stored in a hosted database. API keys stay in `.env` and are never wr
 - Generate an educational blog with OpenRouter only when you pass `--ai` or `generateBlog: true`
 - Turn a transcript into an Instagram carousel with a theme, then render the slide images
 - Add your own channel and get new video ideas from your videos plus parallel research on what is trending
+- Generate short videos from a prompt with OpenRouter video models in the Studio
 - Translate a transcript into another language, speak it with AI, and dub a local video with ffmpeg
 - Search the local library
 - Browse channels, transcripts, and blogs in a Vite + React dashboard
@@ -775,6 +776,26 @@ It is built to cost close to nothing: free OpenRouter models, free research sour
 ```bash
 npm run api:ai:ideas -- yourchannel --focus "voice agents"
 ```
+
+## Video Studio
+
+Open **Studio** in the dashboard, write a detailed prompt, choose a video model, and generate a short clip with OpenRouter. Tick **Improve my prompt** to let a text model (Opus or any other) rewrite your idea as a detailed video prompt first. Clips are saved on your machine:
+
+```text
+generated/<id>/
+  video.mp4
+  meta.json     prompt, model, duration, resolution, aspect ratio
+```
+
+`generated/` is git-ignored. Video generation is billed per second by the model's provider through OpenRouter. The Studio shows the price before it starts, and clips are capped at 12 seconds (`studio.maxSeconds`).
+
+```bash
+curl -X POST http://localhost:3000/api/ai/video \
+  -H "Content-Type: application/json" \
+  -d '{"prompt":"A slow dolly shot through a rainy neon street at night, cinematic 35mm look.","model":"google/veo-3.1","duration":6}'
+```
+
+The request waits until the clip is saved, which can take a few minutes. `GET /api/studio/models` lists each model's supported durations, resolutions and aspect ratios. `GET /api/studio/videos` lists your clips and `GET /api/studio/videos/:id/file` streams one.
 
 ## Filesystem
 

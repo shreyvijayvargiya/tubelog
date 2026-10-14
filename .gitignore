@@ -11,3 +11,6 @@ dashboard/dist/
 # personal channel memory and generated ideas stay local
 videos/*/memory.json
 videos/*/ideas/
+
+# generated Studio videos stay local
+generated/

@@ -15,6 +15,7 @@ import { DocsPage } from "./pages/Docs.jsx";
 import { IdeasPage } from "./pages/Ideas.jsx";
 import { MyChannelNewPage } from "./pages/MyChannelNew.jsx";
 import { SettingsPage } from "./pages/Settings.jsx";
+import { StudioPage } from "./pages/Studio.jsx";
 import { VideosPage } from "./pages/Videos.jsx";
 
 export function App() {
@@ -34,6 +35,7 @@ export function App() {
             <Route path="/blogs" element={<BlogsPage />} />
             <Route path="/ideas" element={<IdeasPage />} />
             <Route path="/my-channels/new" element={<MyChannelNewPage />} />
+            <Route path="/studio" element={<StudioPage />} />
             <Route path="/docs" element={<DocsPage />} />
             <Route path="/changelog" element={<ChangelogPage />} />
             <Route path="/settings" element={<SettingsPage />} />

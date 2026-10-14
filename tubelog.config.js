@@ -101,6 +101,12 @@ export default {
     queries: 3,
     geo: "US",
   },
+  studio: {
+    maxSeconds: 12,
+    timeoutMinutes: 15,
+    pollSeconds: 5,
+    models: ["google/veo-3.1", "google/veo-3.1-lite"],
+  },
   sync: {
     maxVideos: 20,
     maxPages: 12,
